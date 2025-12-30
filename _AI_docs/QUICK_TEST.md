@@ -19,7 +19,7 @@
 
 ### 2단계: 로드 확인
 
-- ✅ "Katering Auto Reservation"이 목록에 나타나야 함
+- ✅ "Catering Auto Reservation"이 목록에 나타나야 함
 - ✅ 오류가 없어야 함 (빨간색 표시 없음)
 - ✅ 아이콘이 표시되어야 함
 
@@ -35,7 +35,7 @@
 1. `chrome://extensions/`에서 "service worker" 링크 클릭
 2. Console에 다음 로그 확인:
    ```
-   [Katering] Extension installed/updated
+   [Catering] Extension installed/updated
    ```
 
 ### 테스트 3: 수동 예약 테스트 (1분 후 실행)
@@ -99,10 +99,10 @@ chrome.storage.local.set({
 3. 타겟 페이지 새로고침 (F5)
 4. 페이지 Console (F12)에서 다음 로그 확인:
    ```
-   [Katering] Found pending reservation, executing...
-   [Katering] Starting form fill with data: {...}
-   [Katering] Form filled: {...}
-   [Katering] Form submitted
+   [Catering] Found pending reservation, executing...
+   [Catering] Starting form fill with data: {...}
+   [Catering] Form filled: {...}
+   [Catering] Form submitted
    ```
 
 ## ✅ 확인 사항

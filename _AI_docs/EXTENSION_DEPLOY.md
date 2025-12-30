@@ -87,7 +87,7 @@ extension/
 cd extension
 
 # 배포용 ZIP 생성 (소스 파일 제외)
-zip -r katering-extension.zip \
+zip -r catering-extension.zip \
   manifest.json \
   dist/ \
   src/popup/ \
@@ -120,7 +120,7 @@ zip -r katering-extension.zip \
 
 **필수 항목:**
 
-1. **이름**: `Katering Auto Reservation` (또는 원하는 이름)
+1. **이름**: `Catering Auto Reservation` (또는 원하는 이름)
 
 2. **간단한 설명** (132자 이내):
 
@@ -131,7 +131,7 @@ zip -r katering-extension.zip \
 3. **상세 설명**:
 
    ```
-   Katering은 특정 시간(오후 3시)에 정확히 케이터링 예약을 자동으로 수행하는 시스템입니다.
+   Catering은 특정 시간(오후 3시)에 정확히 케이터링 예약을 자동으로 수행하는 시스템입니다.
 
    주요 기능:
    - 매일 지정된 시간에 자동 예약 실행

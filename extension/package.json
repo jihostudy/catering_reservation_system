@@ -1,7 +1,7 @@
 {
-  "name": "katering-extension",
+  "name": "catering-extension",
   "version": "1.0.0",
-  "description": "Katering Auto Reservation Chrome Extension",
+  "description": "Catering Auto Reservation Chrome Extension",
   "type": "module",
   "scripts": {
     "build": "tsup",

@@ -126,7 +126,7 @@ async function fillReservationForm(
   const timestamp = Date.now();
 
   try {
-    console.log("[Katering] Starting form fill with data:", reservationData);
+    console.log("[Catering] Starting form fill with data:", reservationData);
 
     // 이메일 입력
     const emailInput = await waitForElement<HTMLInputElement>(
@@ -188,7 +188,7 @@ async function fillReservationForm(
       };
     }
 
-    console.log("[Katering] Form filled:", {
+    console.log("[Catering] Form filled:", {
       email: emailInput.value,
       name: nameInput.value,
       empNo: empNoInput.value,
@@ -218,13 +218,13 @@ async function fillReservationForm(
     }
 
     submitButton.click();
-    console.log("[Katering] Form submitted");
+    console.log("[Catering] Form submitted");
 
     return { success: true, message: "예약 신청 완료", timestamp };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "알 수 없는 오류";
-    console.error("[Katering] Form fill error:", error);
+    console.error("[Catering] Form fill error:", error);
     return { success: false, message: errorMessage, timestamp };
   }
 }
@@ -244,11 +244,11 @@ async function checkAndExecutePendingReservation(): Promise<void> {
   const pendingData = storage.pendingReservation as ReservationData | null;
 
   if (!pendingData) {
-    console.log("[Katering] No pending reservation");
+    console.log("[Catering] No pending reservation");
     return;
   }
 
-  console.log("[Katering] Found pending reservation, executing...");
+  console.log("[Catering] Found pending reservation, executing...");
 
   // pending 데이터 삭제
   await chrome.storage.local.remove("pendingReservation");

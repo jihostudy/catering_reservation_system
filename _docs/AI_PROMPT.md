@@ -12,7 +12,7 @@
 
 ## 프로젝트 정보
 
-**프로젝트명**: Katering
+**프로젝트명**: Catering
 **목적**: 특정 사이트의 오후 3시 자동 예약 시스템
 
 ### 타겟 사이트
@@ -39,7 +39,7 @@ https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/
 ## 프로젝트 구조
 
 ```
-katering/
+catering/
 ├── _docs/                         # 프로젝트 문서
 │   ├── PROJECT.md                # 상세 프로젝트 문서
 │   └── AI_PROMPT.md              # 이 파일

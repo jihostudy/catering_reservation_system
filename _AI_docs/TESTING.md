@@ -26,14 +26,14 @@ pnpm build
    - "압축해제된 확장 프로그램을 로드합니다" 버튼 클릭
    - `extension` 폴더 선택 (루트 폴더, `dist` 폴더가 아닌)
 5. **로드 확인**
-   - 익스텐션 목록에 "Katering Auto Reservation"이 나타나야 합니다
+   - 익스텐션 목록에 "Catering Auto Reservation"이 나타나야 합니다
    - 오류가 있으면 빨간색으로 표시됩니다
 
 ## 3. 기본 기능 테스트
 
 ### 3.1 익스텐션 팝업 확인
 
-1. Chrome 툴바에서 익스텐션 아이콘 클릭 (없으면 퍼즐 아이콘 → Katering 고정)
+1. Chrome 툴바에서 익스텐션 아이콘 클릭 (없으면 퍼즐 아이콘 → Catering 고정)
 2. 팝업이 열리면:
    - 상태가 "자동 예약 비활성화"로 표시되어야 합니다
    - 예약 시간, 이름, 케이터링이 모두 "-"로 표시되어야 합니다
@@ -65,12 +65,12 @@ chrome.storage.local.get(null, (data) => {
 ### 3.3 Background Script 로그 확인
 
 1. `chrome://extensions/` 페이지에서
-2. "Katering Auto Reservation" 카드에서 "service worker" 링크 클릭
+2. "Catering Auto Reservation" 카드에서 "service worker" 링크 클릭
 3. 개발자 도구가 열리면 Console 탭 확인
 4. 다음과 같은 로그가 보여야 합니다:
    ```
-   [Katering] Extension installed/updated
-   [Katering] Alarm disabled or no reservation data
+   [Catering] Extension installed/updated
+   [Catering] Alarm disabled or no reservation data
    ```
 
 ### 3.4 수동 예약 테스트 (테스트용)
@@ -122,7 +122,7 @@ chrome.storage.local.set({
 2. 개발자 도구 열기 (F12)
 3. Console 탭에서 다음 로그 확인:
    ```
-   [Katering] No pending reservation
+   [Catering] No pending reservation
    ```
 4. 수동으로 예약 실행 테스트:
 
@@ -157,7 +157,7 @@ chrome.alarms.getAll((alarms) => {
 ```javascript
 // 알람을 10초 후로 설정
 const testTime = Date.now() + 10000;
-chrome.alarms.create('katering-reservation-alarm', {
+chrome.alarms.create('catering-reservation-alarm', {
   when: testTime
 });
 

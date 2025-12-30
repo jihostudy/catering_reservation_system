@@ -1,6 +1,6 @@
 import { DEFAULT_SCHEDULE, type ReservationSchedule, type ReservationResult } from './types';
 
-const ALARM_NAME = 'katering-reservation-alarm';
+const ALARM_NAME = 'catering-reservation-alarm';
 const TARGET_URL = 'https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/';
 
 /**
@@ -11,7 +11,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!storage.schedule) {
     await chrome.storage.local.set({ schedule: DEFAULT_SCHEDULE, history: [] });
   }
-  console.log('[Katering] Extension installed/updated');
+  console.log('[Catering] Extension installed/updated');
 });
 
 /**
@@ -21,7 +21,7 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
   await chrome.alarms.clear(ALARM_NAME);
 
   if (!schedule.enabled || !schedule.reservationData) {
-    console.log('[Katering] Alarm disabled or no reservation data');
+    console.log('[Catering] Alarm disabled or no reservation data');
     return;
   }
 
@@ -41,7 +41,7 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
     periodInMinutes: 24 * 60, // 매일 반복
   });
 
-  console.log(`[Katering] Alarm set for ${targetTime.toLocaleString()}, delay: ${delayInMinutes.toFixed(1)} minutes`);
+  console.log(`[Catering] Alarm set for ${targetTime.toLocaleString()}, delay: ${delayInMinutes.toFixed(1)} minutes`);
 }
 
 /**
@@ -50,13 +50,13 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
 
-  console.log('[Katering] Alarm triggered at', new Date().toLocaleString());
+  console.log('[Catering] Alarm triggered at', new Date().toLocaleString());
 
   const storage = await chrome.storage.local.get('schedule');
   const schedule = storage.schedule as ReservationSchedule;
 
   if (!schedule?.enabled || !schedule.reservationData) {
-    console.log('[Katering] Reservation disabled or no data');
+    console.log('[Catering] Reservation disabled or no data');
     return;
   }
 
@@ -66,7 +66,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   // content script에 예약 데이터 전달을 위해 저장
   await chrome.storage.local.set({ pendingReservation: schedule.reservationData });
 
-  console.log('[Katering] Opened target page, tab:', tab.id);
+  console.log('[Catering] Opened target page, tab:', tab.id);
 });
 
 /**
@@ -122,7 +122,7 @@ async function handleReservationResult(result: ReservationResult): Promise<void>
     message: result.message,
   });
 
-  console.log('[Katering] Result saved:', result);
+  console.log('[Catering] Result saved:', result);
 }
 
 // 시작 시 알람 재설정

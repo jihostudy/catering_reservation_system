@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Katering</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 320px;
+      padding: 16px;
+      background: #f8f9fa;
+    }
+    h1 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .status.enabled {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.disabled {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+    .info-label {
+      color: #666;
+    }
+    .info-value {
+      color: #333;
+      font-weight: 500;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: background 0.2s;
+    }
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    .last-result {
+      margin-top: 16px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .last-result h3 {
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Katering</h1>
+
+  <div id="status" class="status disabled">
+    상태 확인 중...
+  </div>
+
+  <div id="info">
+    <div class="info-row">
+      <span class="info-label">예약 시간</span>
+      <span class="info-value" id="targetTime">-</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">이름</span>
+      <span class="info-value" id="userName">-</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">케이터링</span>
+      <span class="info-value" id="cateringType">-</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="openDashboard">
+    관리 페이지 열기
+  </button>
+
+  <div id="lastResultSection" class="last-result" style="display: none;">
+    <h3>최근 실행 결과</h3>
+    <div id="lastResult"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -20,6 +20,7 @@ export function ReservationForm({ userEmail }: ReservationFormProps) {
   const [employeeId, setEmployeeId] = useState('');
   const [cateringType, setCateringType] = useState('');
   const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [errors, setErrors] = useState({
     name: false,
@@ -200,6 +201,17 @@ export function ReservationForm({ userEmail }: ReservationFormProps) {
         {loading ? '저장 중...' : '저장하기'}
       </button>
 
+      {/* 예약하기 버튼 */}
+      <button
+        type="button"
+        onClick={handleTestReservation}
+        disabled={testing || !name.trim() || !employeeId.trim() || !cateringType}
+        data-testid="reservation-button"
+        className="w-full mt-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 active:bg-green-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {testing ? '예약 페이지 열기 중...' : '예약하기 (테스트)'}
+      </button>
+
       {/* 토스트 팝업 */}
       <Toast
         message={message?.text || ''}
@@ -209,5 +221,40 @@ export function ReservationForm({ userEmail }: ReservationFormProps) {
       />
     </form>
   );
+
+  async function handleTestReservation() {
+    // 필수 필드 검증
+    const trimmedName = name.trim();
+    const trimmedEmployeeId = employeeId.trim();
+
+    if (!trimmedName || !trimmedEmployeeId || !cateringType) {
+      setMessage({ type: 'error', text: '모든 필드를 입력해주세요.' });
+      return;
+    }
+
+    setTesting(true);
+    setMessage(null);
+
+    try {
+      // 타겟 페이지를 새 탭으로 열기
+      const targetUrl = 'https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/';
+      window.open(targetUrl, '_blank');
+
+      setMessage({ 
+        type: 'success', 
+        text: '예약 페이지가 열렸습니다. 익스텐션이 자동으로 폼을 채웁니다.' 
+      });
+
+      // 익스텐션의 dashboard-content script가 버튼 클릭을 감지하고 처리함
+      // 약간의 지연을 주어 메시지가 전달될 시간 확보
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+    } catch (error) {
+      console.error('Error opening reservation page:', error);
+      setMessage({ type: 'error', text: '예약 페이지를 열 수 없습니다.' });
+    } finally {
+      setTesting(false);
+    }
+  }
 }
 

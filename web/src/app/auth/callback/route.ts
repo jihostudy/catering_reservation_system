@@ -9,13 +9,32 @@ const ALLOWED_DOMAIN = "@oliveyoung.co.kr";
  * 이메일 도메인 검증 포함
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { searchParams, origin, hostname } = requestUrl;
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
+  // 로컬호스트 감지 (hostname 기준)
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
+  // 디버깅: 요청 정보 로그
+  console.log(`[Auth Callback] Request received:`, {
+    url: request.url,
+    hostname,
+    origin,
+    code: code ? "present" : "missing",
+    next,
+    isLocalhost,
+  });
+
   if (code) {
+    console.log(`[Auth Callback] Processing code exchange...`);
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error) {
+      console.error(`[Auth Callback] Code exchange error:`, error);
+    }
 
     if (!error) {
       // 사용자 정보 가져오기
@@ -56,19 +75,26 @@ export async function GET(request: Request) {
         }
       }
 
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
+      // 환경에 따라 리다이렉트 URL 결정 (request URL의 hostname 기준)
+      let redirectUrl: string;
 
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+      if (isLocalhost) {
+        // 로컬 환경: localhost:3000 사용 (포트도 포함)
+        const port = requestUrl.port || "3000";
+        redirectUrl = `http://localhost:${port}${next}`;
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        // 프로덕션 환경: 현재 origin 사용 (request URL 기준)
+        redirectUrl = `${origin}${next}`;
       }
+
+      console.log(
+        `[Auth Callback] Redirecting to: ${redirectUrl} (hostname: ${hostname})`
+      );
+      return NextResponse.redirect(redirectUrl);
     }
   }
 
   // 에러 발생 시 에러 페이지로
+  console.log(`[Auth Callback] No code found, redirecting to error page`);
   return NextResponse.redirect(`${origin}/auth/error`);
 }

@@ -17,10 +17,29 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsLoading(true);
     const supabase = createClient();
 
+    // 환경에 따라 리다이렉트 URL 결정
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    let redirectUrl: string;
+
+    if (isLocalhost) {
+      // 로컬 환경: localhost:3000 사용 (포트 포함)
+      const port = window.location.port || "3000";
+      redirectUrl = `http://localhost:${port}/auth/callback?next=/dashboard`;
+    } else {
+      // 프로덕션 환경: 현재 origin 사용
+      redirectUrl = `${window.location.origin}/auth/callback?next=/dashboard`;
+    }
+
+    console.log(
+      `[LoginModal] Redirect URL: ${redirectUrl} (hostname: ${window.location.hostname})`
+    );
+
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

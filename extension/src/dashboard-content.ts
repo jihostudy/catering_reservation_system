@@ -259,10 +259,7 @@ function setupReservationButton(): void {
         }
 
         try {
-          // 테스트 모드 활성화
-          await chrome.storage.local.set({ testMode: true });
-
-          // 예약 데이터를 pendingReservation으로 설정
+          // 예약 데이터 준비
           const reservationData = {
             email: userInfo.email,
             name: userInfo.name,
@@ -270,19 +267,27 @@ function setupReservationButton(): void {
             cateringType: userInfo.cateringType,
           };
 
-          await chrome.storage.local.set({
-            pendingReservation: reservationData,
-          });
-
-          // background script에 페이지 열기 요청
+          // background script에 모든 작업 요청 (SOTA: Service Worker를 통한 안전한 처리)
           const targetUrl = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
-          chrome.runtime.sendMessage({
-            type: "OPEN_RESERVATION_PAGE",
-            url: targetUrl,
-          });
-
-          console.log(
-            "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+          chrome.runtime.sendMessage(
+            {
+              type: "OPEN_RESERVATION_PAGE_WITH_DATA",
+              url: targetUrl,
+              reservationData: reservationData,
+              testMode: true,
+            },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(
+                  "[Catering] 예약 실행 오류:",
+                  chrome.runtime.lastError.message
+                );
+              } else {
+                console.log(
+                  "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+                );
+              }
+            }
           );
         } catch (error) {
           console.error("[Catering] 예약 실행 오류:", error);
@@ -317,8 +322,6 @@ function setupReservationButton(): void {
       }
 
       try {
-        await chrome.storage.local.set({ testMode: true });
-
         const reservationData = {
           email: userInfo.email,
           name: userInfo.name,
@@ -326,16 +329,27 @@ function setupReservationButton(): void {
           cateringType: userInfo.cateringType,
         };
 
-        await chrome.storage.local.set({ pendingReservation: reservationData });
-
+        // background script에 모든 작업 요청 (SOTA: Service Worker를 통한 안전한 처리)
         const targetUrl = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
-        chrome.runtime.sendMessage({
-          type: "OPEN_RESERVATION_PAGE",
-          url: targetUrl,
-        });
-
-        console.log(
-          "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+        chrome.runtime.sendMessage(
+          {
+            type: "OPEN_RESERVATION_PAGE_WITH_DATA",
+            url: targetUrl,
+            reservationData: reservationData,
+            testMode: true,
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                "[Catering] 예약 실행 오류:",
+                chrome.runtime.lastError.message
+              );
+            } else {
+              console.log(
+                "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+              );
+            }
+          }
         );
       } catch (error) {
         console.error("[Catering] 예약 실행 오류:", error);

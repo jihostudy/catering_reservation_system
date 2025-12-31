@@ -1,7 +1,6 @@
 import { LogoutButton } from "@/components/LogoutButton";
 import { ReservationForm } from "@/components/ReservationForm";
 import { AutoReservationStatus } from "@/components/AutoReservationStatus";
-import { ReservationHistory } from "@/components/ReservationHistory";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -59,13 +58,10 @@ export default async function DashboardPage() {
             <ReservationForm userEmail={user.email ?? ""} />
           </div>
 
-          {/* 상태 및 이력 카드 */}
+          {/* 상태 카드 */}
           <div className="grid grid-cols-1 gap-4">
             {/* 자동 예약 상태 */}
             <AutoReservationStatus />
-
-            {/* 최근 예약 이력 */}
-            <ReservationHistory />
           </div>
         </div>
       </main>

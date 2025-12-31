@@ -147,9 +147,10 @@ Supabase Auth를 사용하면 **개인 Google Cloud Console**에서 OAuth 앱을
    - 1GB 스토리지
    - 충분한 인증 요청
 
-3. **로컬 개발 시**
-   - `http://localhost:3000/auth/callback`도 Redirect URI에 추가
-   - 개발/프로덕션 환경 분리
+3. **리디렉션 URI 설정**
+   - **프로덕션**: `https://cateringreservationsystem.vercel.app/auth/callback`
+   - **개발**: `http://localhost:3000/auth/callback`
+   - Google Cloud Console의 "승인된 리디렉션 URI"에 둘 다 추가
 
 ## ❓ 문제 해결
 

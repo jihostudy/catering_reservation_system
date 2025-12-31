@@ -1,5 +1,7 @@
-// 관리 웹사이트 URL (배포 후 수정)
-const DASHBOARD_URL = 'http://localhost:3000';
+// 관리 웹사이트 URL
+// 프로덕션: https://cateringreservationsystem.vercel.app
+// 개발: http://localhost:3000
+const DASHBOARD_URL = 'https://cateringreservationsystem.vercel.app';
 const AUTH_STATUS_API = `${DASHBOARD_URL}/api/auth/status`;
 const USER_API = `${DASHBOARD_URL}/api/users`;
 

@@ -73,36 +73,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     });
 
-  // 케이터링 시간 드롭다운 변경
-  document
-    .getElementById("cateringTime")
-    .addEventListener("change", async (e) => {
-      if (!currentSchedule) return;
-
-      const newCateringType = e.target.value;
-      const newSchedule = {
-        ...currentSchedule,
-        reservationData: currentSchedule.reservationData
-          ? {
-              ...currentSchedule.reservationData,
-              cateringType: newCateringType,
-            }
-          : null,
-      };
-
-      chrome.runtime.sendMessage(
-        {
-          type: "UPDATE_SCHEDULE",
-          schedule: newSchedule,
-        },
-        (response) => {
-          if (response?.success) {
-            currentSchedule = newSchedule;
-          }
-        }
-      );
-    });
-
   // 로그인 버튼
   document.getElementById("loginButton").addEventListener("click", () => {
     chrome.tabs.create({ url: DASHBOARD_URL });
@@ -111,6 +81,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 홈페이지 아이콘
   document.getElementById("homeIcon").addEventListener("click", () => {
     chrome.tabs.create({ url: DASHBOARD_URL });
+  });
+
+  // 깃허브 아이콘
+  document.getElementById("githubIcon").addEventListener("click", () => {
+    chrome.tabs.create({
+      url: "https://github.com/jihostudy/catering_reservation_system",
+    });
   });
 
   // 디버깅: 현재 저장된 데이터 확인
@@ -379,7 +356,7 @@ function updateStatusUI(schedule) {
   const emailEl = document.getElementById("userEmail");
   const userNameEl = document.getElementById("userName");
   const employeeIdEl = document.getElementById("employeeId");
-  const cateringTimeSelect = document.getElementById("cateringTime");
+  const cateringTimeEl = document.getElementById("cateringTime");
 
   // 토글 스위치 상태 업데이트
   if (schedule?.enabled) {
@@ -388,24 +365,36 @@ function updateStatusUI(schedule) {
     toggleSwitch.classList.remove("active");
   }
 
+  // 케이터링 타입 표시 텍스트 매핑
+  const cateringTypeMap = {
+    "1차수": "1차수 (11:30~12:00)",
+    "2차수": "2차수 (12:00~12:30)",
+    "3차수": "3차수 (12:30~13:00)",
+    콤보: "콤보 (11:30~15:00)",
+    샐러드: "샐러드 (11:30~15:00)",
+  };
+
   // 사용자 정보가 있으면 표시
   if (schedule?.reservationData) {
     emailEl.textContent = schedule.reservationData.email || "-";
     userNameEl.textContent = schedule.reservationData.name || "-";
     employeeIdEl.textContent = schedule.reservationData.employeeId || "-";
 
-    // 케이터링 시간 드롭다운 값 설정
+    // 케이터링 시간 텍스트로 표시
     if (schedule.reservationData.cateringType) {
-      cateringTimeSelect.value = schedule.reservationData.cateringType;
+      const displayText =
+        cateringTypeMap[schedule.reservationData.cateringType] ||
+        schedule.reservationData.cateringType;
+      cateringTimeEl.textContent = displayText;
     } else {
-      cateringTimeSelect.value = "";
+      cateringTimeEl.textContent = "-";
     }
   } else {
     // 사용자 정보가 없으면 모두 '-' 표시
     emailEl.textContent = "-";
     userNameEl.textContent = "-";
     employeeIdEl.textContent = "-";
-    cateringTimeSelect.value = "";
+    cateringTimeEl.textContent = "-";
   }
 }
 

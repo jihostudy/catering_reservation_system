@@ -112,6 +112,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("homeIcon").addEventListener("click", () => {
     chrome.tabs.create({ url: DASHBOARD_URL });
   });
+
+  // 디버깅: 현재 저장된 데이터 확인
+  console.log("[Catering] Popup loaded, checking storage...");
+
+  // 방법 1: Chrome Storage 직접 접근 (background script 없이도 작동)
+  chrome.storage.local.get(["schedule", "lastResult", "history"], (data) => {
+    console.log("[Catering] 📦 Direct Chrome Storage access:", data);
+    if (data.schedule?.reservationData) {
+      console.log(
+        "[Catering] ✅ Reservation data found in storage:",
+        data.schedule.reservationData
+      );
+    } else {
+      console.log("[Catering] ⚠️ No reservation data in storage");
+    }
+  });
+
+  // 방법 2: Background script를 통한 접근 (background script가 작동하는 경우)
+  chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error(
+        "[Catering] ❌ Background script error:",
+        chrome.runtime.lastError.message
+      );
+      console.log(
+        "[Catering] 💡 Tip: Try reloading the extension or check if background.js is loaded"
+      );
+    } else if (response) {
+      console.log("[Catering] ✅ Background script response:", {
+        schedule: response.schedule,
+        reservationData: response.schedule?.reservationData,
+        lastResult: response.lastResult,
+      });
+    } else {
+      console.log("[Catering] ⚠️ Background script returned no data");
+    }
+  });
 });
 
 async function checkAuthStatus() {
@@ -283,15 +320,47 @@ async function syncUserDataFromWeb() {
 
 /**
  * Chrome Storage에서 상태 로드
+ * Background script 연결 오류 시 직접 Storage 접근
  */
 function loadStatusFromStorage() {
+  // 방법 1: Background script를 통한 접근 시도
   chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-    if (!response) return;
-
-    const { schedule, lastResult } = response;
-    currentSchedule = schedule;
-    updateStatusUI(schedule);
-    updateLastResultUI(lastResult);
+    if (chrome.runtime.lastError) {
+      // Background script 오류 시 직접 Storage 접근
+      console.warn(
+        "[Catering] Background script error, using direct storage access:",
+        chrome.runtime.lastError.message
+      );
+      chrome.storage.local.get(["schedule", "lastResult"], (data) => {
+        const schedule = data.schedule || {
+          enabled: false,
+          targetHour: 15,
+          targetMinute: 0,
+          reservationData: null,
+        };
+        currentSchedule = schedule;
+        updateStatusUI(schedule);
+        updateLastResultUI(data.lastResult || null);
+      });
+    } else if (response) {
+      const { schedule, lastResult } = response;
+      currentSchedule = schedule;
+      updateStatusUI(schedule);
+      updateLastResultUI(lastResult);
+    } else {
+      // 응답이 없으면 직접 Storage 접근
+      chrome.storage.local.get(["schedule", "lastResult"], (data) => {
+        const schedule = data.schedule || {
+          enabled: false,
+          targetHour: 15,
+          targetMinute: 0,
+          reservationData: null,
+        };
+        currentSchedule = schedule;
+        updateStatusUI(schedule);
+        updateLastResultUI(data.lastResult || null);
+      });
+    }
   });
 }
 

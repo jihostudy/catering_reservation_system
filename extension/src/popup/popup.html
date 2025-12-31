@@ -22,25 +22,66 @@
       margin-bottom: 16px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
     }
-    .status {
+    .home-icon {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      color: #666;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+    .home-icon:hover {
+      color: #007bff;
+    }
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       padding: 12px;
       border-radius: 8px;
       margin-bottom: 16px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+    }
+    .toggle-label {
       font-size: 14px;
+      font-weight: 500;
+      color: #333;
     }
-    .status.enabled {
-      background: #d4edda;
-      color: #155724;
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 24px;
+      background: #ccc;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
     }
-    .status.disabled {
-      background: #f8d7da;
-      color: #721c24;
+    .toggle-switch.active {
+      background: #28a745;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .toggle-switch.active::after {
+      transform: translateX(24px);
     }
     .info-row {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       padding: 8px 0;
       border-bottom: 1px solid #eee;
       font-size: 13px;
@@ -51,6 +92,15 @@
     .info-value {
       color: #333;
       font-weight: 500;
+    }
+    .info-value select {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 13px;
+      background: white;
+      color: #333;
+      cursor: pointer;
     }
     .btn {
       width: 100%;
@@ -88,29 +138,49 @@
   </style>
 </head>
 <body>
-  <h1>Catering</h1>
+  <h1>
+    <span>Catering</span>
+    <svg class="home-icon" id="homeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+      <polyline points="9 22 9 12 15 12 15 22"></polyline>
+    </svg>
+  </h1>
 
-  <div id="status" class="status disabled">
-    상태 확인 중...
+  <div class="toggle-container">
+    <span class="toggle-label">자동 예약</span>
+    <div class="toggle-switch" id="toggleSwitch"></div>
   </div>
 
   <div id="info">
     <div class="info-row">
-      <span class="info-label">예약 시간</span>
-      <span class="info-value" id="targetTime">-</span>
+      <span class="info-label">이메일</span>
+      <span class="info-value" id="userEmail">-</span>
     </div>
     <div class="info-row">
       <span class="info-label">이름</span>
       <span class="info-value" id="userName">-</span>
     </div>
     <div class="info-row">
-      <span class="info-label">케이터링</span>
-      <span class="info-value" id="cateringType">-</span>
+      <span class="info-label">사번</span>
+      <span class="info-value" id="employeeId">-</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">케이터링 시간</span>
+      <span class="info-value">
+        <select id="cateringTime">
+          <option value="">선택하세요</option>
+          <option value="1차수">1차수 (11:30~12:00)</option>
+          <option value="2차수">2차수 (12:00~12:30)</option>
+          <option value="3차수">3차수 (12:30~13:00)</option>
+          <option value="콤보">콤보 (11:30~15:00)</option>
+          <option value="샐러드">샐러드 (11:30~15:00)</option>
+        </select>
+      </span>
     </div>
   </div>
 
-  <button class="btn btn-primary" id="openDashboard">
-    관리 페이지 열기
+  <button class="btn btn-primary" id="loginButton" style="display: none;">
+    로그인하기
   </button>
 
   <div id="lastResultSection" class="last-result" style="display: none;">

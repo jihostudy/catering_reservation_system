@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { createClient } from '@/lib/supabase/client';
-import { useState } from 'react';
+import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
 
-const ALLOWED_DOMAIN = '@oliveyoung.co.kr';
+const ALLOWED_DOMAIN = "@oliveyoung.co.kr";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -18,13 +18,13 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     const supabase = createClient();
 
     await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-          hd: 'oliveyoung.co.kr', // Google Workspace 도메인 제한
+          access_type: "offline",
+          prompt: "consent",
+          hd: "oliveyoung.co.kr", // Google Workspace 도메인 제한
         },
       },
     });
@@ -132,4 +132,3 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     </div>
   );
 }
-

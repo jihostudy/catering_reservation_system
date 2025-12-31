@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     background: 'src/background.ts',
     content: 'src/content.ts',
+    'dashboard-content': 'src/dashboard-content.ts',
   },
   format: ['esm'],
   target: 'es2022',

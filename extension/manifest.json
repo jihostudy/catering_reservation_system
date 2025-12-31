@@ -10,7 +10,10 @@
     "scripting",
     "notifications"
   ],
-  "host_permissions": ["https://oz.d1qwefwlwtxtfr.amplifyapp.com/*"],
+  "host_permissions": [
+    "https://oz.d1qwefwlwtxtfr.amplifyapp.com/*",
+    "http://localhost:3000/*"
+  ],
   "background": {
     "service_worker": "dist/background.js",
     "type": "module"
@@ -32,6 +35,14 @@
     {
       "matches": ["https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/*"],
       "js": ["dist/content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:3000/dashboard*",
+        "https://*/*/dashboard*"
+      ],
+      "js": ["dist/dashboard-content.js"],
       "run_at": "document_idle"
     }
   ]

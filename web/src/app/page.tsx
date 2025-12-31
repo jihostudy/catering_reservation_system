@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { LoginButton } from '@/components/LoginButton';
+import { Suspense } from 'react';
+import { ErrorHandler } from '@/components/ErrorHandler';
 
 export default async function Home() {
   const supabase = await createClient();
@@ -12,7 +14,11 @@ export default async function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-black overflow-hidden">
+    <>
+      <Suspense fallback={null}>
+        <ErrorHandler />
+      </Suspense>
+      <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-black overflow-hidden">
       {/* 히어로 섹션 */}
       <section className="flex-1 flex items-center justify-center relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -200,5 +206,6 @@ export default async function Home() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

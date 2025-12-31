@@ -100,6 +100,14 @@ function setInputValue(
   input: HTMLInputElement | HTMLSelectElement,
   value: string
 ): void {
+  // readonly 속성 제거 (이메일 필드가 readonly일 수 있음)
+  if (input.hasAttribute("readonly")) {
+    input.removeAttribute("readonly");
+  }
+
+  // focus 이벤트 발생
+  input.focus();
+
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     input.tagName === "SELECT"
       ? HTMLSelectElement.prototype
@@ -113,8 +121,21 @@ function setInputValue(
     input.value = value;
   }
 
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new Event("change", { bubbles: true }));
+  // React가 인식할 수 있도록 여러 이벤트 발생
+  input.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+
+  // React의 SyntheticEvent를 위한 추가 이벤트
+  const nativeEvent = new Event("input", { bubbles: true, cancelable: true });
+  Object.defineProperty(nativeEvent, "target", {
+    writable: false,
+    value: input,
+  });
+  input.dispatchEvent(nativeEvent);
+
+  // blur 이벤트 발생 (React가 상태를 업데이트하도록)
+  input.blur();
+  input.focus();
 }
 
 /**
@@ -128,75 +149,131 @@ async function fillReservationForm(
   try {
     console.log("[Catering] Starting form fill with data:", reservationData);
 
+    // 페이지가 완전히 로드될 때까지 대기
+    if (document.readyState !== "complete") {
+      await new Promise((resolve) => {
+        if (document.readyState === "complete") {
+          resolve(undefined);
+        } else {
+          window.addEventListener("load", () => resolve(undefined));
+        }
+      });
+    }
+
+    // 추가 대기 (React가 DOM을 렌더링할 시간)
+    await new Promise((r) => setTimeout(r, 1000));
+
+    console.log("[Catering] Waiting for form elements...");
+
     // 이메일 입력
     const emailInput = await waitForElement<HTMLInputElement>(
-      FORM_SELECTORS.email
+      FORM_SELECTORS.email,
+      15000
     );
     if (!emailInput) {
+      console.error("[Catering] Email input not found");
       return {
         success: false,
         message: "이메일 입력 필드를 찾을 수 없습니다",
         timestamp,
       };
     }
+    console.log("[Catering] Email input found:", emailInput);
     setInputValue(emailInput, reservationData.email);
+    console.log("[Catering] Email set to:", reservationData.email);
 
     // 이름 입력
-    const nameInput = findElement<HTMLInputElement>(FORM_SELECTORS.name);
+    const nameInput = await waitForElement<HTMLInputElement>(
+      FORM_SELECTORS.name,
+      15000
+    );
     if (!nameInput) {
+      console.error("[Catering] Name input not found");
       return {
         success: false,
         message: "이름 입력 필드를 찾을 수 없습니다",
         timestamp,
       };
     }
+    console.log("[Catering] Name input found:", nameInput);
     setInputValue(nameInput, reservationData.name);
+    console.log("[Catering] Name set to:", reservationData.name);
 
     // 사번 입력 (실제 필드명: empNo)
-    const empNoInput = findElement<HTMLInputElement>(FORM_SELECTORS.empNo);
+    const empNoInput = await waitForElement<HTMLInputElement>(
+      FORM_SELECTORS.empNo,
+      15000
+    );
     if (!empNoInput) {
+      console.error("[Catering] Employee ID input not found");
       return {
         success: false,
         message: "사번 입력 필드를 찾을 수 없습니다",
         timestamp,
       };
     }
+    console.log("[Catering] Employee ID input found:", empNoInput);
     setInputValue(empNoInput, reservationData.employeeId);
+    console.log("[Catering] Employee ID set to:", reservationData.employeeId);
 
     // 케이터링 타입 선택 (실제 필드명: type, 값은 01-05)
-    const typeSelect = findElement<HTMLSelectElement>(FORM_SELECTORS.type);
+    const typeSelect = await waitForElement<HTMLSelectElement>(
+      FORM_SELECTORS.type,
+      15000
+    );
     if (!typeSelect) {
+      console.error("[Catering] Type select not found");
       return {
         success: false,
         message: "케이터링 타입 선택 필드를 찾을 수 없습니다",
         timestamp,
       };
     }
+    console.log("[Catering] Type select found:", typeSelect);
 
     // 사용자 입력값을 실제 옵션 값으로 변환 (01, 02, 03, 04, 05)
     const mappedType =
       CATERING_TYPE_MAP[reservationData.cateringType] ||
       reservationData.cateringType;
+    console.log(
+      "[Catering] Mapping catering type:",
+      reservationData.cateringType,
+      "->",
+      mappedType
+    );
     setInputValue(typeSelect, mappedType);
+    console.log("[Catering] Type set to:", mappedType);
 
-    // 입력값 검증
-    if (!nameInput.value || !empNoInput.value || !typeSelect.value) {
+    // React가 상태를 업데이트할 시간을 위해 대기
+    await new Promise((r) => setTimeout(r, 500));
+
+    // 입력값 검증 (다시 확인)
+    const finalEmail = emailInput.value;
+    const finalName = nameInput.value;
+    const finalEmpNo = empNoInput.value;
+    const finalType = typeSelect.value;
+
+    console.log("[Catering] Final form values:", {
+      email: finalEmail,
+      name: finalName,
+      empNo: finalEmpNo,
+      type: finalType,
+    });
+
+    if (!finalName || !finalEmpNo || !finalType) {
+      console.error("[Catering] Validation failed:", {
+        name: finalName,
+        empNo: finalEmpNo,
+        type: finalType,
+      });
       return {
         success: false,
-        message: `입력값 검증 실패: 이름=${nameInput.value}, 사번=${empNoInput.value}, 타입=${typeSelect.value}`,
+        message: `입력값 검증 실패: 이름=${finalName}, 사번=${finalEmpNo}, 타입=${finalType}`,
         timestamp,
       };
     }
 
-    console.log("[Catering] Form filled:", {
-      email: emailInput.value,
-      name: nameInput.value,
-      empNo: empNoInput.value,
-      type: typeSelect.value,
-    });
-
-    // React 등 프레임워크가 상태를 업데이트할 시간을 위해 대기
-    await new Promise((r) => setTimeout(r, 300));
+    console.log("[Catering] ✅ Form filled successfully");
 
     // 테스트 모드 확인
     const storage = await chrome.storage.local.get("testMode");
@@ -205,10 +282,10 @@ async function fillReservationForm(
     if (isTestMode) {
       console.log("[Catering] 테스트 모드: 폼 입력 완료, 제출하지 않습니다.");
       console.log("[Catering] 브라우저 창을 열어둡니다. 수동으로 확인하세요.");
-      return { 
-        success: true, 
-        message: "테스트 모드: 폼 입력 완료 (제출 안 함)", 
-        timestamp 
+      return {
+        success: true,
+        message: "테스트 모드: 폼 입력 완료 (제출 안 함)",
+        timestamp,
       };
     }
 

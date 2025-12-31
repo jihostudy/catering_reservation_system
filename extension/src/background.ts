@@ -95,6 +95,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'OPEN_RESERVATION_PAGE') {
+    const url = message.url || TARGET_URL;
+    chrome.tabs.create({ url, active: true }).then(() => {
+      sendResponse({ success: true });
+    });
+    return true; // async response
+  }
+
   return false;
 });
 

@@ -274,11 +274,16 @@ function setupReservationButton(): void {
             pendingReservation: reservationData,
           });
 
-          // 타겟 페이지를 포그라운드로 열기
+          // background script에 페이지 열기 요청
           const targetUrl = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
-          chrome.tabs.create({ url: targetUrl, active: true });
+          chrome.runtime.sendMessage({
+            type: "OPEN_RESERVATION_PAGE",
+            url: targetUrl,
+          });
 
-          console.log("[Catering] 예약 페이지 열기 완료, 테스트 모드 활성화됨");
+          console.log(
+            "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+          );
         } catch (error) {
           console.error("[Catering] 예약 실행 오류:", error);
         }
@@ -324,9 +329,14 @@ function setupReservationButton(): void {
         await chrome.storage.local.set({ pendingReservation: reservationData });
 
         const targetUrl = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
-        chrome.tabs.create({ url: targetUrl, active: true });
+        chrome.runtime.sendMessage({
+          type: "OPEN_RESERVATION_PAGE",
+          url: targetUrl,
+        });
 
-        console.log("[Catering] 예약 페이지 열기 완료, 테스트 모드 활성화됨");
+        console.log(
+          "[Catering] 예약 페이지 열기 요청 완료, 테스트 모드 활성화됨"
+        );
       } catch (error) {
         console.error("[Catering] 예약 실행 오류:", error);
       }

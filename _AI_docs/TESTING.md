@@ -1,4 +1,4 @@
-# 크롬 익스텐션 테스트 가이드
+ㅏㅇ# 크롬 익스텐션 테스트 가이드
 
 ## 1. 빌드 확인
 
@@ -10,6 +10,7 @@ pnpm build
 ```
 
 빌드가 성공하면 `dist/` 폴더에 다음 파일들이 생성됩니다:
+
 - `dist/background.js`
 - `dist/content.js`
 - 각각의 `.map` 파일 (소스맵)
@@ -45,11 +46,12 @@ pnpm build
 
 ```javascript
 chrome.storage.local.get(null, (data) => {
-  console.log('Storage:', data);
+  console.log("Storage:", data);
 });
 ```
 
 기본값이 설정되어 있어야 합니다:
+
 ```javascript
 {
   schedule: {
@@ -81,36 +83,39 @@ chrome.storage.local.get(null, (data) => {
 
 ```javascript
 // 테스트용 예약 데이터 설정
-chrome.storage.local.set({
-  schedule: {
-    enabled: true,
-    targetHour: new Date().getHours(),
-    targetMinute: new Date().getMinutes() + 1, // 1분 후
-    reservationData: {
-      email: 'test@example.com',
-      name: '테스트',
-      employeeId: 'TEST001',
-      cateringType: 'lunch'
-    }
-  }
-}, () => {
-  console.log('Test schedule set');
-  // 알람 재설정을 위해 메시지 전송
-  chrome.runtime.sendMessage({ 
-    type: 'UPDATE_SCHEDULE', 
+chrome.storage.local.set(
+  {
     schedule: {
       enabled: true,
       targetHour: new Date().getHours(),
-      targetMinute: new Date().getMinutes() + 1,
+      targetMinute: new Date().getMinutes() + 1, // 1분 후
       reservationData: {
-        email: 'test@example.com',
-        name: '테스트',
-        employeeId: 'TEST001',
-        cateringType: 'lunch'
-      }
-    }
-  });
-});
+        email: "test@example.com",
+        name: "테스트",
+        employeeId: "TEST001",
+        cateringType: "lunch",
+      },
+    },
+  },
+  () => {
+    console.log("Test schedule set");
+    // 알람 재설정을 위해 메시지 전송
+    chrome.runtime.sendMessage({
+      type: "UPDATE_SCHEDULE",
+      schedule: {
+        enabled: true,
+        targetHour: new Date().getHours(),
+        targetMinute: new Date().getMinutes() + 1,
+        reservationData: {
+          email: "test@example.com",
+          name: "테스트",
+          employeeId: "TEST001",
+          cateringType: "lunch",
+        },
+      },
+    });
+  }
+);
 ```
 
 2. 1분 후 타겟 페이지가 자동으로 열리는지 확인
@@ -130,11 +135,11 @@ chrome.storage.local.set({
 // Background Script Console에서
 chrome.storage.local.set({
   pendingReservation: {
-    email: 'test@example.com',
-    name: '테스트',
-    employeeId: 'TEST001',
-    cateringType: 'lunch'
-  }
+    email: "test@example.com",
+    name: "테스트",
+    employeeId: "TEST001",
+    cateringType: "lunch",
+  },
 });
 
 // 그 다음 타겟 페이지 새로고침
@@ -148,7 +153,7 @@ Background Script Console에서:
 
 ```javascript
 chrome.alarms.getAll((alarms) => {
-  console.log('All alarms:', alarms);
+  console.log("All alarms:", alarms);
 });
 ```
 
@@ -157,30 +162,34 @@ chrome.alarms.getAll((alarms) => {
 ```javascript
 // 알람을 10초 후로 설정
 const testTime = Date.now() + 10000;
-chrome.alarms.create('catering-reservation-alarm', {
-  when: testTime
+chrome.alarms.create("catering-reservation-alarm", {
+  when: testTime,
 });
 
-console.log('Test alarm set for', new Date(testTime).toLocaleString());
+console.log("Test alarm set for", new Date(testTime).toLocaleString());
 ```
 
 ## 5. 문제 해결
 
 ### 익스텐션이 로드되지 않음
+
 - `manifest.json` 문법 오류 확인
 - `dist/background.js`, `dist/content.js` 파일 존재 확인
 - Chrome 개발자 도구의 오류 메시지 확인
 
 ### Background Script가 실행되지 않음
+
 - Service Worker가 중지되었는지 확인 (`chrome://extensions/`에서 재시작)
 - Console에 오류 메시지 확인
 
 ### Content Script가 실행되지 않음
+
 - 타겟 URL이 정확한지 확인 (`https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/*`)
 - 페이지 새로고침
 - Content Script Console 확인 (페이지 개발자 도구가 아닌 익스텐션 개발자 도구)
 
 ### 알람이 트리거되지 않음
+
 - Chrome이 백그라운드에서 실행 중인지 확인
 - 알람이 실제로 설정되었는지 `chrome.alarms.getAll()`로 확인
 - 시간이 이미 지났는지 확인
@@ -193,4 +202,3 @@ console.log('Test alarm set for', new Date(testTime).toLocaleString());
 2. `content.ts`의 `FORM_SELECTORS` 업데이트
 3. 실제 예약 데이터로 테스트
 4. 웹 대시보드와의 동기화 구현
-

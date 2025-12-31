@@ -39,10 +39,8 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
 
   if (isProtectedRoute && !user) {
-    // 미인증 사용자는 로그인 페이지로
-    const redirectUrl = new URL('/auth/login', request.url);
-    redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+    // 미인증 사용자는 메인 페이지로
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   if (isAuthRoute && user) {

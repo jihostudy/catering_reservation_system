@@ -30,10 +30,10 @@ export default async function AuthErrorPage({ searchParams }: ErrorPageProps) {
           <h1 className="text-xl font-semibold text-gray-900 mb-2">로그인 오류</h1>
           <p className="text-sm text-gray-600 mb-6">{message}</p>
           <Link
-            href="/auth/login"
+            href="/"
             className="inline-block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm font-medium"
           >
-            다시 로그인
+            메인으로 돌아가기
           </Link>
         </div>
       </div>

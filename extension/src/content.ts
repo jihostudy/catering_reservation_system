@@ -198,6 +198,20 @@ async function fillReservationForm(
     // React 등 프레임워크가 상태를 업데이트할 시간을 위해 대기
     await new Promise((r) => setTimeout(r, 300));
 
+    // 테스트 모드 확인
+    const storage = await chrome.storage.local.get("testMode");
+    const isTestMode = storage.testMode === true;
+
+    if (isTestMode) {
+      console.log("[Catering] 테스트 모드: 폼 입력 완료, 제출하지 않습니다.");
+      console.log("[Catering] 브라우저 창을 열어둡니다. 수동으로 확인하세요.");
+      return { 
+        success: true, 
+        message: "테스트 모드: 폼 입력 완료 (제출 안 함)", 
+        timestamp 
+      };
+    }
+
     // 제출 버튼 클릭
     const submitButton = findSubmitButton();
     if (!submitButton) {

@@ -27,7 +27,7 @@ export default async function Home() {
             <div className="mb-6">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 dark:text-white mb-3">
                 Catering
-              </h1>
+          </h1>
               <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
                 자동 케이터링 예약 시스템
               </p>
@@ -189,7 +189,7 @@ export default async function Home() {
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 정확한 시간에 자동으로 예약하고 알림을 받습니다.
-              </p>
+          </p>
             </div>
           </div>
         </div>

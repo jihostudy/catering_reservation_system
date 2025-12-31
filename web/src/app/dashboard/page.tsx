@@ -1,6 +1,6 @@
+import { AutoReservationStatus } from "@/components/AutoReservationStatus";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ReservationForm } from "@/components/ReservationForm";
-import { AutoReservationStatus } from "@/components/AutoReservationStatus";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 

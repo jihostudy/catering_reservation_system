@@ -198,8 +198,8 @@ function clearLocalDataIfNotAuthenticated() {
   // UI만 초기화 (Chrome Storage는 유지)
   updateStatusUI({
     enabled: false,
-    targetHour: 15,
-    targetMinute: 0,
+    targetHour: 16,
+    targetMinute: 15,
     reservationData: null,
   });
 }
@@ -242,8 +242,8 @@ async function syncUserDataFromWeb() {
         // schedule이 없으면 기본값 사용
         const baseSchedule = schedule || {
           enabled: false,
-          targetHour: 15,
-          targetMinute: 0,
+          targetHour: 16,
+          targetMinute: 25,
           reservationData: null,
         };
 
@@ -311,8 +311,8 @@ function loadStatusFromStorage() {
       chrome.storage.local.get(["schedule", "lastResult"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
-          targetHour: 15,
-          targetMinute: 0,
+          targetHour: 16,
+          targetMinute: 25,
           reservationData: null,
         };
         currentSchedule = schedule;
@@ -329,8 +329,8 @@ function loadStatusFromStorage() {
       chrome.storage.local.get(["schedule", "lastResult"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
-          targetHour: 15,
-          targetMinute: 0,
+          targetHour: 16,
+          targetMinute: 25,
           reservationData: null,
         };
         currentSchedule = schedule;

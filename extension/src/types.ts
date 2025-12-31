@@ -46,11 +46,11 @@ export type MessageType =
   | { type: 'UPDATE_SCHEDULE'; schedule: ReservationSchedule };
 
 /**
- * 기본 스케줄 설정 (오후 3시)
+ * 기본 스케줄 설정 (오후 4시 25분)
  */
 export const DEFAULT_SCHEDULE: ReservationSchedule = {
   enabled: false,
-  targetHour: 15,
-  targetMinute: 0,
+  targetHour: 16,
+  targetMinute: 25,
   reservationData: null,
 };

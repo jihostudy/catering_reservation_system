@@ -16,57 +16,122 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 /**
  * 알람 설정 - 매일 지정 시간에 실행
+ * SOTA: 정확한 시간 계산 및 알람 상태 확인
  */
 async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
   await chrome.alarms.clear(ALARM_NAME);
 
   if (!schedule.enabled || !schedule.reservationData) {
-    console.log('[Catering] Alarm disabled or no reservation data');
+    console.log('[Catering] ⚠️ Alarm disabled or no reservation data', {
+      enabled: schedule.enabled,
+      hasData: !!schedule.reservationData,
+    });
     return;
   }
 
   const now = new Date();
   const targetTime = new Date();
   targetTime.setHours(schedule.targetHour, schedule.targetMinute, 0, 0);
+  targetTime.setSeconds(0, 0);
 
   // 이미 지난 시간이면 다음 날로 설정
   if (targetTime.getTime() <= now.getTime()) {
     targetTime.setDate(targetTime.getDate() + 1);
+    console.log('[Catering] ⏰ Target time has passed, setting for tomorrow');
   }
 
   const delayInMinutes = (targetTime.getTime() - now.getTime()) / (1000 * 60);
+  const delayInSeconds = (targetTime.getTime() - now.getTime()) / 1000;
 
-  chrome.alarms.create(ALARM_NAME, {
-    when: targetTime.getTime(),
-    periodInMinutes: 24 * 60, // 매일 반복
-  });
+  // Chrome Alarms API는 최소 1분 단위이지만, 정확한 시간을 위해 when 사용
+  try {
+    await chrome.alarms.create(ALARM_NAME, {
+      when: targetTime.getTime(),
+      periodInMinutes: 24 * 60, // 매일 반복
+    });
 
-  console.log(`[Catering] Alarm set for ${targetTime.toLocaleString()}, delay: ${delayInMinutes.toFixed(1)} minutes`);
+    // 알람이 실제로 설정되었는지 확인
+    const alarms = await chrome.alarms.getAll();
+    const createdAlarm = alarms.find((a) => a.name === ALARM_NAME);
+
+    if (createdAlarm) {
+      const scheduledTime = createdAlarm.scheduledTime
+        ? new Date(createdAlarm.scheduledTime)
+        : null;
+      console.log('[Catering] ✅ Alarm successfully set:', {
+        name: createdAlarm.name,
+        scheduledTime: scheduledTime?.toLocaleString('ko-KR'),
+        targetTime: targetTime.toLocaleString('ko-KR'),
+        delayMinutes: delayInMinutes.toFixed(2),
+        delaySeconds: delayInSeconds.toFixed(0),
+        now: now.toLocaleString('ko-KR'),
+      });
+    } else {
+      console.error('[Catering] ❌ Failed to create alarm - alarm not found after creation');
+    }
+  } catch (error) {
+    console.error('[Catering] ❌ Error creating alarm:', error);
+  }
 }
 
 /**
  * 알람 트리거 시 예약 실행
+ * SOTA: 상세한 로깅 및 에러 처리
  */
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== ALARM_NAME) return;
+  console.log('[Catering] 🔔 Alarm triggered:', {
+    name: alarm.name,
+    scheduledTime: alarm.scheduledTime
+      ? new Date(alarm.scheduledTime).toLocaleString('ko-KR')
+      : 'unknown',
+    currentTime: new Date().toLocaleString('ko-KR'),
+  });
 
-  console.log('[Catering] Alarm triggered at', new Date().toLocaleString());
-
-  const storage = await chrome.storage.local.get('schedule');
-  const schedule = storage.schedule as ReservationSchedule;
-
-  if (!schedule?.enabled || !schedule.reservationData) {
-    console.log('[Catering] Reservation disabled or no data');
+  if (alarm.name !== ALARM_NAME) {
+    console.log('[Catering] ⚠️ Ignoring alarm:', alarm.name);
     return;
   }
 
-  // 타겟 페이지 열기
-  const tab = await chrome.tabs.create({ url: TARGET_URL, active: true });
+  try {
+    const storage = await chrome.storage.local.get('schedule');
+    const schedule = storage.schedule as ReservationSchedule;
 
-  // content script에 예약 데이터 전달을 위해 저장
-  await chrome.storage.local.set({ pendingReservation: schedule.reservationData });
+    console.log('[Catering] 📋 Schedule status:', {
+      enabled: schedule?.enabled,
+      hasData: !!schedule?.reservationData,
+      targetHour: schedule?.targetHour,
+      targetMinute: schedule?.targetMinute,
+    });
 
-  console.log('[Catering] Opened target page, tab:', tab.id);
+    if (!schedule?.enabled || !schedule.reservationData) {
+      console.error('[Catering] ❌ Reservation disabled or no data:', {
+        enabled: schedule?.enabled,
+        hasData: !!schedule?.reservationData,
+      });
+      return;
+    }
+
+    // 타겟 페이지를 백그라운드에서 열기 (SOTA: 완전 백그라운드 실행)
+    console.log('[Catering] 🌐 Opening target page in background:', TARGET_URL);
+    const tab = await chrome.tabs.create({ 
+      url: TARGET_URL, 
+      active: false, // 백그라운드에서 열기 (사용자 방해 없음)
+    });
+
+    // content script에 예약 데이터 전달을 위해 저장
+    await chrome.storage.local.set({ 
+      pendingReservation: schedule.reservationData,
+      reservationTabId: tab.id, // 탭 ID 저장 (나중에 닫기 위해)
+    });
+
+    console.log('[Catering] ✅ Target page opened in background, tab ID:', tab.id);
+    console.log('[Catering] 📦 Reservation data saved:', schedule.reservationData);
+
+    // 다음 알람 재설정 (매일 반복)
+    setupDailyAlarm(schedule);
+  } catch (error) {
+    console.error('[Catering] ❌ Error in alarm handler:', error);
+  }
 });
 
 /**
@@ -80,8 +145,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'GET_STATUS') {
-    chrome.storage.local.get(['schedule', 'lastResult']).then((data) => {
-      sendResponse(data);
+    chrome.storage.local.get(['schedule', 'lastResult']).then(async (data) => {
+      // 알람 상태도 함께 반환
+      const alarms = await chrome.alarms.getAll();
+      const alarm = alarms.find((a) => a.name === ALARM_NAME);
+      
+      sendResponse({
+        ...data,
+        alarm: alarm
+          ? {
+              name: alarm.name,
+              scheduledTime: alarm.scheduledTime
+                ? new Date(alarm.scheduledTime).toLocaleString('ko-KR')
+                : null,
+            }
+          : null,
+      });
     });
     return true; // async response
   }
@@ -97,10 +176,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'OPEN_RESERVATION_PAGE') {
     const url = message.url || TARGET_URL;
-    chrome.tabs.create({ url, active: true }).then(() => {
-      sendResponse({ success: true });
+    // 테스트 모드도 백그라운드에서 실행
+    chrome.tabs.create({ url, active: false }).then((tab) => {
+      console.log('[Catering] 📝 Test reservation page opened in background, tab ID:', tab.id);
+      // 테스트 모드 탭 ID도 저장
+      chrome.storage.local.set({ reservationTabId: tab.id });
+      sendResponse({ success: true, tabId: tab.id });
     });
     return true; // async response
+  }
+
+  if (message.type === 'CLOSE_RESERVATION_TAB') {
+    // 예약 완료 후 백그라운드 탭 자동 닫기
+    chrome.storage.local.get('reservationTabId', (data) => {
+      if (data.reservationTabId) {
+        chrome.tabs.remove(data.reservationTabId, () => {
+          console.log('[Catering] 🗑️ Reservation tab closed:', data.reservationTabId);
+          chrome.storage.local.remove('reservationTabId');
+        });
+      }
+    });
+    sendResponse({ success: true });
+    return true;
   }
 
   return false;
@@ -133,9 +230,29 @@ async function handleReservationResult(result: ReservationResult): Promise<void>
   console.log('[Catering] Result saved:', result);
 }
 
-// 시작 시 알람 재설정
+// Service Worker 시작 시 알람 재설정
 chrome.storage.local.get('schedule').then((data) => {
+  console.log('[Catering] 🚀 Service Worker started, checking schedule...');
   if (data.schedule) {
-    setupDailyAlarm(data.schedule as ReservationSchedule);
+    const schedule = data.schedule as ReservationSchedule;
+    console.log('[Catering] 📅 Found schedule, setting up alarm:', {
+      enabled: schedule.enabled,
+      targetHour: schedule.targetHour,
+      targetMinute: schedule.targetMinute,
+      hasData: !!schedule.reservationData,
+    });
+    setupDailyAlarm(schedule);
+  } else {
+    console.log('[Catering] ⚠️ No schedule found in storage');
   }
+});
+
+// Service Worker 활성화 확인
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[Catering] 🔄 Chrome startup detected, reinitializing...');
+  chrome.storage.local.get('schedule').then((data) => {
+    if (data.schedule) {
+      setupDailyAlarm(data.schedule as ReservationSchedule);
+    }
+  });
 });

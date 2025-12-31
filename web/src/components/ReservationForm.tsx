@@ -201,16 +201,18 @@ export function ReservationForm({ userEmail }: ReservationFormProps) {
         {loading ? '저장 중...' : '저장하기'}
       </button>
 
-      {/* 예약하기 버튼 */}
-      <button
-        type="button"
-        onClick={handleTestReservation}
-        disabled={testing || !name.trim() || !employeeId.trim() || !cateringType}
-        data-testid="reservation-button"
-        className="w-full mt-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 active:bg-green-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {testing ? '예약 페이지 열기 중...' : '예약하기 (테스트)'}
-      </button>
+      {/* 예약하기 버튼 - calekim@oliveyoung.co.kr만 보임 */}
+      {userEmail === 'calekim@oliveyoung.co.kr' && (
+        <button
+          type="button"
+          onClick={handleTestReservation}
+          disabled={testing || !name.trim() || !employeeId.trim() || !cateringType}
+          data-testid="reservation-button"
+          className="w-full mt-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 active:bg-green-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {testing ? '예약 페이지 열기 중...' : '예약하기 (테스트)'}
+        </button>
+      )}
 
       {/* 토스트 팝업 */}
       <Toast

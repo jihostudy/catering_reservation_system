@@ -275,18 +275,14 @@ async function fillReservationForm(
 
     console.log("[Catering] ✅ Form filled successfully");
 
-    // 테스트 모드 확인
+    // 테스트 모드 확인 (로깅용)
     const storage = await chrome.storage.local.get("testMode");
     const isTestMode = storage.testMode === true;
 
     if (isTestMode) {
-      console.log("[Catering] 테스트 모드: 폼 입력 완료, 제출하지 않습니다.");
-      console.log("[Catering] 브라우저 창을 열어둡니다. 수동으로 확인하세요.");
-      return {
-        success: true,
-        message: "테스트 모드: 폼 입력 완료 (제출 안 함)",
-        timestamp,
-      };
+      console.log(
+        "[Catering] 테스트 모드: 폼 입력 완료, 제출 버튼을 클릭합니다."
+      );
     }
 
     // 제출 버튼 클릭
@@ -311,7 +307,11 @@ async function fillReservationForm(
     submitButton.click();
     console.log("[Catering] Form submitted");
 
-    return { success: true, message: "예약 신청 완료", timestamp };
+    const resultMessage = isTestMode
+      ? "테스트 모드: 예약 신청 완료 (제출됨)"
+      : "예약 신청 완료";
+
+    return { success: true, message: resultMessage, timestamp };
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "알 수 없는 오류";
@@ -322,9 +322,22 @@ async function fillReservationForm(
 
 /**
  * 예약 결과를 background script로 전송
+ * SOTA: 백그라운드 실행 후 탭 자동 닫기
  */
 function sendResultToBackground(result: ReservationResult): void {
-  chrome.runtime.sendMessage({ type: "RESERVATION_RESULT", result });
+  chrome.runtime.sendMessage({ type: "RESERVATION_RESULT", result }, () => {
+    // 예약 완료 후 백그라운드 탭 자동 닫기 (사용자 방해 없음)
+    // 약간의 지연을 주어 제출이 완료될 시간 확보
+    setTimeout(() => {
+      chrome.runtime
+        .sendMessage({
+          type: "CLOSE_RESERVATION_TAB",
+        })
+        .catch(() => {
+          // 메시지 전송 실패는 무시 (탭이 이미 닫혔을 수 있음)
+        });
+    }, 2000); // 2초 후 탭 닫기
+  });
 }
 
 /**

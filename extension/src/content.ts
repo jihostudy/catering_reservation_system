@@ -305,19 +305,214 @@ async function fillReservationForm(
     }
 
     submitButton.click();
-    console.log("[Catering] Form submitted");
+    console.log("[Catering] Form submitted, waiting for result...");
 
-    const resultMessage = isTestMode
-      ? "테스트 모드: 예약 신청 완료 (제출됨)"
-      : "예약 신청 완료";
-
-    return { success: true, message: resultMessage, timestamp };
+    // 제출 후 결과 확인 (SOTA: 성공/실패/이미 예약 확인)
+    const result = await waitForReservationResult(isTestMode);
+    return result;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "알 수 없는 오류";
     console.error("[Catering] Form fill error:", error);
     return { success: false, message: errorMessage, timestamp };
   }
+}
+
+/**
+ * 제출 후 예약 결과 확인 (성공/실패/이미 예약)
+ * SOTA: 페이지 변화 감지 및 메시지 파싱
+ */
+async function waitForReservationResult(
+  isTestMode: boolean,
+  timeoutMs = 10000
+): Promise<ReservationResult> {
+  const timestamp = Date.now();
+  const startTime = Date.now();
+
+  return new Promise((resolve) => {
+    // 1. 즉시 확인: 페이지에 이미 메시지가 있는지
+    const immediateCheck = checkReservationStatus();
+    if (immediateCheck) {
+      console.log("[Catering] Immediate status check:", immediateCheck);
+      resolve({
+        success: immediateCheck.success,
+        message: immediateCheck.message,
+        timestamp,
+      });
+      return;
+    }
+
+    // 2. MutationObserver로 페이지 변화 감지
+    const observer = new MutationObserver(() => {
+      const status = checkReservationStatus();
+      if (status) {
+        observer.disconnect();
+        console.log("[Catering] Status detected via MutationObserver:", status);
+        resolve({
+          success: status.success,
+          message: status.message,
+          timestamp,
+        });
+      }
+    });
+
+    // 페이지 전체 감시
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    // 3. 주기적으로 확인 (MutationObserver가 놓칠 수 있음)
+    const intervalId = setInterval(() => {
+      const status = checkReservationStatus();
+      if (status) {
+        clearInterval(intervalId);
+        observer.disconnect();
+        console.log("[Catering] Status detected via interval check:", status);
+        resolve({
+          success: status.success,
+          message: status.message,
+          timestamp,
+        });
+      } else if (Date.now() - startTime > timeoutMs) {
+        // 타임아웃
+        clearInterval(intervalId);
+        observer.disconnect();
+        console.warn("[Catering] Timeout waiting for reservation result");
+        resolve({
+          success: false,
+          message: "예약 결과 확인 시간 초과 (페이지 변화를 감지하지 못함)",
+          timestamp,
+        });
+      }
+    }, 500); // 0.5초마다 확인
+
+    // 4. 최종 타임아웃
+    setTimeout(() => {
+      clearInterval(intervalId);
+      observer.disconnect();
+      if (Date.now() - startTime < timeoutMs) {
+        // 아직 결과를 받지 못했지만 타임아웃
+        const finalCheck = checkReservationStatus();
+        if (finalCheck) {
+          resolve({
+            success: finalCheck.success,
+            message: finalCheck.message,
+            timestamp,
+          });
+        } else {
+          resolve({
+            success: false,
+            message: "예약 결과를 확인할 수 없습니다",
+            timestamp,
+          });
+        }
+      }
+    }, timeoutMs);
+  });
+}
+
+/**
+ * 페이지에서 예약 상태 확인 (성공/실패/이미 예약)
+ */
+function checkReservationStatus(): {
+  success: boolean;
+  message: string;
+} | null {
+  const bodyText = document.body.textContent || "";
+  const bodyHTML = document.body.innerHTML || "";
+
+  // 성공 메시지 패턴
+  const successPatterns = [
+    /예약.*성공/i,
+    /신청.*완료/i,
+    /예약.*완료/i,
+    /신청.*성공/i,
+    /success/i,
+    /완료되었습니다/i,
+  ];
+
+  // 실패 메시지 패턴
+  const failurePatterns = [
+    /예약.*실패/i,
+    /신청.*실패/i,
+    /오류/i,
+    /error/i,
+    /에러/i,
+    /불가/i,
+    /불가능/i,
+  ];
+
+  // 이미 예약한 경우 패턴
+  const alreadyReservedPatterns = [
+    /이미.*예약/i,
+    /이미.*신청/i,
+    /중복/i,
+    /already/i,
+    /duplicate/i,
+    /예약.*있습니다/i,
+    /신청.*있습니다/i,
+  ];
+
+  // 페이지 URL 변경 확인 (성공 시 리다이렉트될 수 있음)
+  const currentUrl = window.location.href;
+  if (currentUrl.includes("/success") || currentUrl.includes("/complete")) {
+    return {
+      success: true,
+      message: "예약 성공 (URL 확인)",
+    };
+  }
+
+  if (currentUrl.includes("/error") || currentUrl.includes("/fail")) {
+    return {
+      success: false,
+      message: "예약 실패 (URL 확인)",
+    };
+  }
+
+  // 텍스트 기반 확인
+  for (const pattern of alreadyReservedPatterns) {
+    if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      return {
+        success: false,
+        message: "이미 예약하셨습니다",
+      };
+    }
+  }
+
+  for (const pattern of successPatterns) {
+    if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      return {
+        success: true,
+        message: "예약 성공",
+      };
+    }
+  }
+
+  for (const pattern of failurePatterns) {
+    if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      return {
+        success: false,
+        message: "예약 실패",
+      };
+    }
+  }
+
+  // 폼이 사라지고 다른 내용이 나타났는지 확인
+  const form = document.querySelector("form");
+  const submitButton = findSubmitButton();
+
+  // 폼이 사라졌고 제출 버튼도 없으면 성공으로 간주 (페이지가 변경됨)
+  if (!form && !submitButton && bodyText.length > 100) {
+    // 충분한 내용이 있으면 페이지가 변경된 것으로 간주
+    return {
+      success: true,
+      message: "예약 완료 (페이지 변화 감지)",
+    };
+  }
+
+  return null; // 아직 결과를 확인할 수 없음
 }
 
 /**

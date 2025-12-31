@@ -40,17 +40,17 @@ export interface StorageSchema {
  * 메시지 타입 정의
  */
 export type MessageType =
-  | { type: 'EXECUTE_RESERVATION'; data: ReservationData }
-  | { type: 'RESERVATION_RESULT'; result: ReservationResult }
-  | { type: 'GET_STATUS' }
-  | { type: 'UPDATE_SCHEDULE'; schedule: ReservationSchedule };
+  | { type: "EXECUTE_RESERVATION"; data: ReservationData }
+  | { type: "RESERVATION_RESULT"; result: ReservationResult }
+  | { type: "GET_STATUS" }
+  | { type: "UPDATE_SCHEDULE"; schedule: ReservationSchedule };
 
 /**
- * 기본 스케줄 설정 (오후 4시 25분)
+ * 기본 스케줄 설정 (오후 3시)
  */
 export const DEFAULT_SCHEDULE: ReservationSchedule = {
   enabled: false,
-  targetHour: 16,
-  targetMinute: 25,
+  targetHour: 15,
+  targetMinute: 0,
   reservationData: null,
 };

@@ -83,8 +83,8 @@ async function saveUserInfoToExtension(userInfo: UserInfo): Promise<void> {
     const response = await chrome.runtime.sendMessage({ type: "GET_STATUS" });
     const schedule = response?.schedule || {
       enabled: false,
-      targetHour: 16,
-      targetMinute: 25,
+      targetHour: 15,
+      targetMinute: 0,
       reservationData: null,
     };
 

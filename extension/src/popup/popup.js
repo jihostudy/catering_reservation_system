@@ -242,8 +242,8 @@ async function syncUserDataFromWeb() {
         // schedule이 없으면 기본값 사용
         const baseSchedule = schedule || {
           enabled: false,
-          targetHour: 16,
-          targetMinute: 25,
+          targetHour: 15,
+          targetMinute: 0,
           reservationData: null,
         };
 
@@ -311,8 +311,8 @@ function loadStatusFromStorage() {
       chrome.storage.local.get(["schedule", "lastResult"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
-          targetHour: 16,
-          targetMinute: 25,
+          targetHour: 15,
+          targetMinute: 0,
           reservationData: null,
         };
         currentSchedule = schedule;
@@ -329,8 +329,8 @@ function loadStatusFromStorage() {
       chrome.storage.local.get(["schedule", "lastResult"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
-          targetHour: 16,
-          targetMinute: 25,
+          targetHour: 15,
+          targetMinute: 0,
           reservationData: null,
         };
         currentSchedule = schedule;

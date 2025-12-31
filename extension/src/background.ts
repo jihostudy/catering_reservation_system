@@ -93,8 +93,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 
   try {
-    const storage = await chrome.storage.local.get('schedule');
+    const storage = await chrome.storage.local.get(['schedule', 'lastResult']);
     const schedule = storage.schedule as ReservationSchedule;
+    const lastResult = storage.lastResult as ReservationResult | null;
 
     console.log('[Catering] 📋 Schedule status:', {
       enabled: schedule?.enabled,
@@ -109,6 +110,53 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         hasData: !!schedule?.reservationData,
       });
       return;
+    }
+
+    // SOTA: 오늘 이미 예약했는지 확인
+    if (lastResult?.success) {
+      const lastResultDate = new Date(lastResult.timestamp);
+      const today = new Date();
+      
+      // 같은 날인지 확인 (년, 월, 일 비교)
+      const isSameDay =
+        lastResultDate.getFullYear() === today.getFullYear() &&
+        lastResultDate.getMonth() === today.getMonth() &&
+        lastResultDate.getDate() === today.getDate();
+
+      if (isSameDay) {
+        console.log('[Catering] ⏭️ Already reserved today, skipping:', {
+          lastResultTime: lastResultDate.toLocaleString('ko-KR'),
+          today: today.toLocaleString('ko-KR'),
+        });
+        
+        // 알림 표시
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: chrome.runtime.getURL('public/icons/icon128.png'),
+          title: '이미 예약됨',
+          message: '오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.',
+        });
+        
+        // 다음 알람 재설정 (내일)
+        setupDailyAlarm(schedule);
+        return;
+      }
+    }
+
+    // 오늘 이미 예약 실패했지만 "이미 예약" 메시지인 경우
+    if (lastResult && !lastResult.success && lastResult.message.includes('이미 예약')) {
+      const lastResultDate = new Date(lastResult.timestamp);
+      const today = new Date();
+      const isSameDay =
+        lastResultDate.getFullYear() === today.getFullYear() &&
+        lastResultDate.getMonth() === today.getMonth() &&
+        lastResultDate.getDate() === today.getDate();
+
+      if (isSameDay) {
+        console.log('[Catering] ⏭️ Already reserved today (from error message), skipping');
+        setupDailyAlarm(schedule);
+        return;
+      }
     }
 
     // 타겟 페이지를 백그라운드에서 열기 (SOTA: 완전 백그라운드 실행)
@@ -205,10 +253,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 /**
  * 예약 결과 처리 및 히스토리 저장
+ * SOTA: 이미 예약/실패 케이스 처리
  */
 async function handleReservationResult(result: ReservationResult): Promise<void> {
-  const storage = await chrome.storage.local.get('history');
+  const storage = await chrome.storage.local.get(['history', 'schedule']);
   const history = (storage.history as ReservationResult[]) || [];
+  const schedule = storage.schedule as ReservationSchedule;
 
   history.unshift(result);
   // 최근 30개만 유지
@@ -219,14 +269,67 @@ async function handleReservationResult(result: ReservationResult): Promise<void>
     history: trimmedHistory,
   });
 
+  // 이미 예약한 경우 처리
+  if (!result.success && result.message.includes('이미 예약')) {
+    console.log('[Catering] ⚠️ Already reserved - skipping retry');
+    
+    // 알림 표시
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('public/icons/icon128.png'),
+      title: '이미 예약됨',
+      message: '오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.',
+    });
+
+    // 다음 날 알람은 유지 (이미 설정되어 있음)
+    return;
+  }
+
+  // 예약 실패한 경우 처리
+  if (!result.success) {
+    console.error('[Catering] ❌ Reservation failed:', result.message);
+    
+    // 실패 횟수 확인
+    const recentFailures = history
+      .slice(0, 5)
+      .filter((r) => !r.success && !r.message.includes('이미 예약'));
+    
+    if (recentFailures.length >= 3) {
+      // 연속 3회 실패 시 알람 비활성화 제안
+      console.warn('[Catering] ⚠️ Multiple failures detected, consider disabling');
+      
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('public/icons/icon128.png'),
+        title: '예약 실패 반복',
+        message: '예약이 계속 실패하고 있습니다. 설정을 확인해주세요.',
+      });
+    } else {
+      // 일반 실패 알림
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('public/icons/icon128.png'),
+        title: '예약 실패',
+        message: result.message || '예약에 실패했습니다.',
+      });
+    }
+
+    // 실패해도 다음 날 알람은 유지 (재시도)
+    return;
+  }
+
+  // 예약 성공한 경우
+  console.log('[Catering] ✅ Reservation successful!');
+  
   // 알림 표시
   chrome.notifications.create({
     type: 'basic',
     iconUrl: chrome.runtime.getURL('public/icons/icon128.png'),
-    title: result.success ? '예약 성공!' : '예약 실패',
-    message: result.message,
+    title: '예약 성공!',
+    message: result.message || '예약이 완료되었습니다.',
   });
 
+  // 성공한 경우 오늘은 더 이상 시도하지 않음 (다음 날 알람은 유지)
   console.log('[Catering] Result saved:', result);
 }
 

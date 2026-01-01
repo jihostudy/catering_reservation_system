@@ -8,7 +8,9 @@
     "alarms",
     "activeTab",
     "scripting",
-    "notifications"
+    "notifications",
+    "tabs",
+    "windows"
   ],
   "host_permissions": [
     "https://oz.d1qwefwlwtxtfr.amplifyapp.com/*",

@@ -51,8 +51,8 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
 
   const now = new Date();
   const targetTime = new Date();
-  // 자동 예약 시간: 21:45 (테스트용)
-  targetTime.setHours(21, 45, 0, 0);
+  // 자동 예약 시간: 15:00 (오후 3시)
+  targetTime.setHours(15, 0, 0, 0);
   targetTime.setSeconds(0, 0);
 
   // 이미 지난 시간이면 다음 날로 설정
@@ -307,19 +307,46 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       return;
     }
 
-    // 타겟 페이지를 백그라운드에서 열기 (SOTA: 완전 백그라운드 실행)
-    console.log("[Catering] 🌐 Opening target page in background:", TARGET_URL);
-    const tab = await chrome.tabs.create({
+    // 타겟 페이지를 백그라운드에서 열기
+    // 참고: Chrome Extension 제한으로 인해 탭을 열어야 하지만, 최소화된 창으로 열어서 사용자가 보지 않게 처리
+    console.log(
+      "[Catering] 🌐 Opening target page in minimized window:",
+      TARGET_URL
+    );
+
+    // 새 창으로 열기 (사용자가 보고 있는 창과 분리)
+    const newWindow = await chrome.windows.create({
       url: TARGET_URL,
-      active: false, // 백그라운드에서 열기 (사용자 방해 없음)
-      pinned: false, // 고정하지 않음
+      focused: false, // 포커스하지 않음
+      state: "minimized", // 최소화 상태로 열기
+      type: "normal",
     });
 
-    // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
-    if (tab.id) {
-      await chrome.tabs.update(tab.id, { active: false });
-      console.log("[Catering] ✅ Tab kept in background, ID:", tab.id);
+    // 창을 즉시 최소화 시도 (플랫폼에 따라 다를 수 있음)
+    if (newWindow.id) {
+      try {
+        await chrome.windows.update(newWindow.id, {
+          focused: false,
+          state: "minimized",
+        });
+      } catch (error) {
+        // 최소화 실패해도 계속 진행 (일부 플랫폼에서 지원 안 함)
+        console.log("[Catering] ⚠️ Could not minimize window:", error);
+      }
     }
+
+    // 새 창의 첫 번째 탭 ID 가져오기
+    const tabs = await chrome.tabs.query({ windowId: newWindow.id });
+    const tab = tabs[0];
+
+    if (!tab || !tab.id) {
+      console.error("[Catering] ❌ Failed to get tab from new window");
+      return;
+    }
+
+    // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
+    await chrome.tabs.update(tab.id, { active: false });
+    console.log("[Catering] ✅ Tab opened in minimized window, ID:", tab.id);
 
     // content script에 예약 데이터 전달을 위해 저장
     await chrome.storage.local.set({
@@ -413,25 +440,43 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === "OPEN_RESERVATION_PAGE") {
     const url = message.url || TARGET_URL;
-    // 테스트 모드도 백그라운드에서 실행
-    chrome.tabs
+    // 테스트 모드도 최소화된 창에서 실행
+    chrome.windows
       .create({
         url,
-        active: false, // 백그라운드에서 열기
-        pinned: false, // 고정하지 않음
+        focused: false, // 포커스하지 않음
+        state: "minimized", // 최소화 상태로 열기
+        type: "normal",
       })
-      .then(async (tab) => {
-        // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
-        if (tab.id) {
-          await chrome.tabs.update(tab.id, { active: false });
+      .then(async (newWindow) => {
+        // 창을 즉시 최소화 시도
+        if (newWindow.id) {
+          try {
+            await chrome.windows.update(newWindow.id, {
+              focused: false,
+              state: "minimized",
+            });
+          } catch (error) {
+            console.log("[Catering] ⚠️ Could not minimize window:", error);
+          }
         }
-        console.log(
-          "[Catering] 📝 Test reservation page opened in background, tab ID:",
-          tab.id
-        );
-        // 테스트 모드 탭 ID도 저장
-        chrome.storage.local.set({ reservationTabId: tab.id });
-        sendResponse({ success: true, tabId: tab.id });
+
+        // 새 창의 첫 번째 탭 ID 가져오기
+        const tabs = await chrome.tabs.query({ windowId: newWindow.id });
+        const tab = tabs[0];
+
+        if (tab && tab.id) {
+          await chrome.tabs.update(tab.id, { active: false });
+          console.log(
+            "[Catering] 📝 Test reservation page opened in minimized window, tab ID:",
+            tab.id
+          );
+          // 테스트 모드 탭 ID도 저장
+          chrome.storage.local.set({ reservationTabId: tab.id });
+          sendResponse({ success: true, tabId: tab.id });
+        } else {
+          sendResponse({ success: false, error: "Failed to get tab" });
+        }
       });
     return true; // async response
   }
@@ -587,9 +632,25 @@ async function handleReservationResult(
     history: trimmedHistory,
   });
 
-  // 케이터링 차수 정보 가져오기
+  // 케이터링 차수 정보 가져오기 및 변환
   const cateringType = schedule?.reservationData?.cateringType || "";
-  const cateringTypeDisplay = cateringType || "";
+
+  // 케이터링 타입을 표시용 텍스트로 변환 (01 -> 1차수, 02 -> 2차수 등)
+  const CATERING_TYPE_DISPLAY_MAP: Record<string, string> = {
+    "01": "1차수",
+    "02": "2차수",
+    "03": "3차수",
+    "04": "콤보",
+    "05": "샐러드",
+    "1차수": "1차수",
+    "2차수": "2차수",
+    "3차수": "3차수",
+    콤보: "콤보",
+    샐러드: "샐러드",
+  };
+
+  const cateringTypeDisplay =
+    CATERING_TYPE_DISPLAY_MAP[cateringType] || cateringType || "";
 
   // 이미 예약한 경우 처리
   if (!result.success && result.message.includes("이미 예약")) {
@@ -662,6 +723,11 @@ async function handleReservationResult(
         ? `${cateringTypeDisplay} 예약 실패`
         : "예약 실패";
 
+      console.log("[Catering] 🔔 Creating failure notification:", {
+        title: failureTitle,
+        message: result.message || "예약에 실패했습니다.",
+      });
+
       chrome.notifications.create(
         {
           type: "basic",
@@ -674,11 +740,12 @@ async function handleReservationResult(
         (notificationId) => {
           if (chrome.runtime.lastError) {
             console.error(
-              "[Catering] 알림 생성 실패:",
+              "[Catering] ❌ 알림 생성 실패:",
               chrome.runtime.lastError.message
             );
+            console.error("[Catering] Full error:", chrome.runtime.lastError);
           } else {
-            console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+            console.log("[Catering] ✅ 알림 생성 성공, ID:", notificationId);
           }
         }
       );
@@ -690,11 +757,21 @@ async function handleReservationResult(
 
   // 예약 성공한 경우
   console.log("[Catering] ✅ Reservation successful!");
+  console.log("[Catering] 📊 Reservation details:", {
+    cateringType,
+    cateringTypeDisplay,
+    resultMessage: result.message,
+  });
 
   // 알림 표시 (성공) - 차수 정보 포함
   const successTitle = cateringTypeDisplay
     ? `${cateringTypeDisplay} 예약 성공!`
     : "예약 성공!";
+
+  console.log("[Catering] 🔔 Creating success notification:", {
+    title: successTitle,
+    message: result.message || "예약이 완료되었습니다.",
+  });
 
   chrome.notifications.create(
     {
@@ -708,11 +785,12 @@ async function handleReservationResult(
     (notificationId) => {
       if (chrome.runtime.lastError) {
         console.error(
-          "[Catering] 알림 생성 실패:",
+          "[Catering] ❌ 알림 생성 실패:",
           chrome.runtime.lastError.message
         );
+        console.error("[Catering] Full error:", chrome.runtime.lastError);
       } else {
-        console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+        console.log("[Catering] ✅ 알림 생성 성공, ID:", notificationId);
       }
     }
   );

@@ -51,8 +51,8 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
 
   const now = new Date();
   const targetTime = new Date();
-  // 자동 예약 시간: 20:40 (테스트용)
-  targetTime.setHours(20, 40, 0, 0);
+  // 자동 예약 시간: 21:45 (테스트용)
+  targetTime.setHours(21, 45, 0, 0);
   targetTime.setSeconds(0, 0);
 
   // 이미 지난 시간이면 다음 날로 설정

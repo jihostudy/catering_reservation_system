@@ -5,6 +5,8 @@ import {
 } from "./types";
 
 const ALARM_NAME = "catering-reservation-alarm";
+const ALARM_NAME_10MIN = "catering-reservation-alarm-10min";
+const ALARM_NAME_5MIN = "catering-reservation-alarm-5min";
 const TARGET_URL = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
 
 /**
@@ -23,7 +25,10 @@ chrome.runtime.onInstalled.addListener(async () => {
  * SOTA: 정확한 시간 계산 및 알람 상태 확인
  */
 async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
+  // 기존 알람 모두 제거
   await chrome.alarms.clear(ALARM_NAME);
+  await chrome.alarms.clear(ALARM_NAME_10MIN);
+  await chrome.alarms.clear(ALARM_NAME_5MIN);
 
   if (!schedule.enabled || !schedule.reservationData) {
     console.log("[Catering] ⚠️ Alarm disabled or no reservation data", {
@@ -44,15 +49,47 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
     console.log("[Catering] ⏰ Target time has passed, setting for tomorrow");
   }
 
+  // 10분 전 시간 계산
+  const time10MinBefore = new Date(targetTime);
+  time10MinBefore.setMinutes(time10MinBefore.getMinutes() - 10);
+
+  // 5분 전 시간 계산
+  const time5MinBefore = new Date(targetTime);
+  time5MinBefore.setMinutes(time5MinBefore.getMinutes() - 5);
+
   const delayInMinutes = (targetTime.getTime() - now.getTime()) / (1000 * 60);
   const delayInSeconds = (targetTime.getTime() - now.getTime()) / 1000;
 
-  // Chrome Alarms API는 최소 1분 단위이지만, 정확한 시간을 위해 when 사용
   try {
+    // 메인 알람 (예약 시간)
     await chrome.alarms.create(ALARM_NAME, {
       when: targetTime.getTime(),
       periodInMinutes: 24 * 60, // 매일 반복
     });
+
+    // 10분 전 알람
+    if (time10MinBefore.getTime() > now.getTime()) {
+      await chrome.alarms.create(ALARM_NAME_10MIN, {
+        when: time10MinBefore.getTime(),
+        periodInMinutes: 24 * 60, // 매일 반복
+      });
+      console.log(
+        "[Catering] ✅ 10분 전 알람 설정:",
+        time10MinBefore.toLocaleString("ko-KR")
+      );
+    }
+
+    // 5분 전 알람
+    if (time5MinBefore.getTime() > now.getTime()) {
+      await chrome.alarms.create(ALARM_NAME_5MIN, {
+        when: time5MinBefore.getTime(),
+        periodInMinutes: 24 * 60, // 매일 반복
+      });
+      console.log(
+        "[Catering] ✅ 5분 전 알람 설정:",
+        time5MinBefore.toLocaleString("ko-KR")
+      );
+    }
 
     // 알람이 실제로 설정되었는지 확인
     const alarms = await chrome.alarms.getAll();
@@ -93,6 +130,35 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     currentTime: new Date().toLocaleString("ko-KR"),
   });
 
+  // 10분 전 알람 처리
+  if (alarm.name === ALARM_NAME_10MIN) {
+    console.log("[Catering] ⏰ 10분 전 알림 표시");
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+      title: "예약 10분 전",
+      message: "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
+      priority: 2,
+      requireInteraction: false,
+    });
+    return;
+  }
+
+  // 5분 전 알람 처리
+  if (alarm.name === ALARM_NAME_5MIN) {
+    console.log("[Catering] ⏰ 5분 전 알림 표시");
+    chrome.notifications.create({
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+      title: "예약 5분 전",
+      message: "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
+      priority: 2,
+      requireInteraction: false,
+    });
+    return;
+  }
+
+  // 메인 알람 (예약 실행)만 처리
   if (alarm.name !== ALARM_NAME) {
     console.log("[Catering] ⚠️ Ignoring alarm:", alarm.name);
     return;

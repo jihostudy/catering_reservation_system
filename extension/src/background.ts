@@ -139,8 +139,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         chrome.notifications.create({
           type: "basic",
           iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-          title: "이미 예약됨",
+          title: "ℹ️ 이미 예약됨",
           message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
+          priority: 1,
+          requireInteraction: false,
         });
 
         // 다음 알람 재설정 (내일)
@@ -328,6 +330,10 @@ async function handleReservationResult(
     history: trimmedHistory,
   });
 
+  // 케이터링 차수 정보 가져오기
+  const cateringType = schedule?.reservationData?.cateringType || "";
+  const cateringTypeDisplay = cateringType || "";
+
   // 이미 예약한 경우 처리
   if (!result.success && result.message.includes("이미 예약")) {
     console.log("[Catering] ⚠️ Already reserved - skipping retry");
@@ -338,6 +344,8 @@ async function handleReservationResult(
       iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
       title: "이미 예약됨",
       message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
+      priority: 1, // 일반 우선순위
+      requireInteraction: false,
     });
 
     // 다음 날 알람은 유지 (이미 설정되어 있음)
@@ -364,14 +372,22 @@ async function handleReservationResult(
         iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
         title: "예약 실패 반복",
         message: "예약이 계속 실패하고 있습니다. 설정을 확인해주세요.",
+        priority: 2, // 높은 우선순위
+        requireInteraction: true, // 사용자가 직접 닫아야 함
       });
     } else {
-      // 일반 실패 알림
+      // 일반 실패 알림 (차수 정보 포함)
+      const failureTitle = cateringTypeDisplay
+        ? `${cateringTypeDisplay} 예약 실패`
+        : "예약 실패";
+
       chrome.notifications.create({
         type: "basic",
         iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-        title: "예약 실패",
+        title: failureTitle,
         message: result.message || "예약에 실패했습니다.",
+        priority: 2, // 높은 우선순위
+        requireInteraction: false,
       });
     }
 
@@ -382,17 +398,33 @@ async function handleReservationResult(
   // 예약 성공한 경우
   console.log("[Catering] ✅ Reservation successful!");
 
-  // 알림 표시
+  // 알림 표시 (성공) - 차수 정보 포함
+  const successTitle = cateringTypeDisplay
+    ? `${cateringTypeDisplay} 예약 성공!`
+    : "예약 성공!";
+
   chrome.notifications.create({
     type: "basic",
     iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-    title: "예약 성공!",
+    title: successTitle,
     message: result.message || "예약이 완료되었습니다.",
+    priority: 2, // 높은 우선순위
+    requireInteraction: false, // 자동으로 사라짐
   });
 
   // 성공한 경우 오늘은 더 이상 시도하지 않음 (다음 날 알람은 유지)
   console.log("[Catering] Result saved:", result);
 }
+
+/**
+ * 알림 클릭 핸들러 - 알림 클릭 시 대시보드 열기
+ */
+chrome.notifications.onClicked.addListener((notificationId) => {
+  console.log("[Catering] 🔔 Notification clicked:", notificationId);
+  const dashboardUrl = "https://cateringreservationsystem.vercel.app/dashboard";
+  chrome.tabs.create({ url: dashboardUrl });
+  chrome.notifications.clear(notificationId);
+});
 
 // Service Worker 시작 시 알람 재설정
 chrome.storage.local.get("schedule").then((data) => {

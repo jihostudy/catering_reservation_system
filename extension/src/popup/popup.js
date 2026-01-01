@@ -156,22 +156,13 @@ async function checkAuthAndUpdateButtons() {
     isAuthenticated = data.authenticated || false;
 
     const loginButton = document.getElementById("loginButton");
-    const authStatusEl = document.getElementById("authStatus");
 
     if (isAuthenticated) {
       // 로그인한 경우: 로그인 버튼 숨김
       loginButton.style.display = "none";
-      if (authStatusEl) {
-        authStatusEl.textContent = `로그인됨: ${data.email || ""}`;
-        authStatusEl.style.color = "#28a745";
-      }
     } else {
       // 로그인하지 않은 경우: 로그인 버튼 표시
       loginButton.style.display = "block";
-      if (authStatusEl) {
-        authStatusEl.textContent = "로그인 필요";
-        authStatusEl.style.color = "#dc3545";
-      }
       // 로그인하지 않은 경우 Chrome Storage 데이터 초기화
       clearLocalDataIfNotAuthenticated();
     }
@@ -180,12 +171,7 @@ async function checkAuthAndUpdateButtons() {
     isAuthenticated = false;
     // 에러 시 로그인 버튼 표시
     const loginButton = document.getElementById("loginButton");
-    const authStatusEl = document.getElementById("authStatus");
     loginButton.style.display = "block";
-    if (authStatusEl) {
-      authStatusEl.textContent = "연결 오류 - 로그인 필요";
-      authStatusEl.style.color = "#dc3545";
-    }
     // 에러 시에도 로컬 데이터 초기화
     clearLocalDataIfNotAuthenticated();
   }

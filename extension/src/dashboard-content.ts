@@ -75,18 +75,93 @@ function extractUserInfo(): UserInfo | null {
 }
 
 /**
+ * chrome.runtime.sendMessage를 Promise로 래핑
+ */
+function sendMessagePromise<T = any>(message: any): Promise<T | null> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn(
+          "[Catering] Service Worker not available, using direct storage:",
+          chrome.runtime.lastError.message
+        );
+        resolve(null);
+      } else {
+        resolve(response as T);
+      }
+    });
+  });
+}
+
+/**
+ * chrome.storage.local에 직접 접근 (Service Worker가 없을 때 fallback)
+ */
+function saveToStorageDirectly(schedule: any): Promise<void> {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set({ schedule }, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * chrome.storage.local에서 직접 읽기 (Service Worker가 없을 때 fallback)
+ */
+function getFromStorageDirectly(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(["schedule"], (data) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(data.schedule);
+      }
+    });
+  });
+}
+
+/**
  * 익스텐션 storage에 사용자 정보 저장
  */
 async function saveUserInfoToExtension(userInfo: UserInfo): Promise<void> {
   try {
-    // 현재 스케줄 가져오기
-    const response = await chrome.runtime.sendMessage({ type: "GET_STATUS" });
-    const schedule = response?.schedule || {
-      enabled: false,
-      targetHour: 15,
-      targetMinute: 0,
-      reservationData: null,
-    };
+    // 현재 스케줄 가져오기 (Service Worker 또는 직접 접근)
+    let schedule: any = null;
+
+    // 먼저 Service Worker를 통해 시도
+    const response = await sendMessagePromise<{ schedule: any }>({
+      type: "GET_STATUS",
+    });
+
+    if (response?.schedule) {
+      schedule = response.schedule;
+    } else {
+      // Service Worker가 없으면 직접 storage 접근
+      try {
+        schedule = await getFromStorageDirectly();
+      } catch (error) {
+        console.error("[Catering] Failed to get schedule from storage:", error);
+        schedule = {
+          enabled: false,
+          targetHour: 15,
+          targetMinute: 0,
+          reservationData: null,
+        };
+      }
+    }
+
+    // 기본값 설정
+    if (!schedule) {
+      schedule = {
+        enabled: false,
+        targetHour: 15,
+        targetMinute: 0,
+        reservationData: null,
+      };
+    }
 
     // 사용자 정보가 있으면 reservationData 업데이트
     if (userInfo.email) {
@@ -97,13 +172,26 @@ async function saveUserInfoToExtension(userInfo: UserInfo): Promise<void> {
         cateringType: userInfo.cateringType,
       };
 
-      // 스케줄 업데이트
-      await chrome.runtime.sendMessage({
+      // 스케줄 업데이트 (Service Worker 또는 직접 접근)
+      const updateResponse = await sendMessagePromise({
         type: "UPDATE_SCHEDULE",
         schedule,
       });
 
-      console.log("[Catering] User info saved to extension:", userInfo);
+      // Service Worker가 없으면 직접 storage에 저장
+      if (updateResponse === null) {
+        try {
+          await saveToStorageDirectly(schedule);
+          console.log(
+            "[Catering] User info saved to extension (direct storage):",
+            userInfo
+          );
+        } catch (error) {
+          console.error("[Catering] Failed to save to storage:", error);
+        }
+      } else {
+        console.log("[Catering] User info saved to extension:", userInfo);
+      }
     }
   } catch (error) {
     console.error("[Catering] Error saving user info:", error);

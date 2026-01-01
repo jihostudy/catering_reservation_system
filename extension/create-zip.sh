@@ -10,17 +10,30 @@ cd "$(dirname "$0")"
 # 기존 ZIP 파일 삭제
 rm -f catering-extension.zip
 
-# 필수 파일만 ZIP에 포함
+# 빌드 확인
+if [ ! -d "dist" ]; then
+  echo "❌ dist 폴더가 없습니다. 먼저 'pnpm build'를 실행하세요."
+  exit 1
+fi
+
+# 필수 파일만 ZIP에 포함 (.map 파일 제외)
 zip -r catering-extension.zip \
   manifest.json \
   dist/background.js \
   dist/content.js \
+  dist/dashboard-content.js \
   src/popup/popup.html \
   src/popup/popup.js \
   public/icons/icon16.png \
   public/icons/icon48.png \
-  public/icons/icon128.png
+  public/icons/icon128.png \
+  -x "*.map" "*.ts" "node_modules/*" ".git/*"
 
 echo "✅ catering-extension.zip 생성 완료!"
 echo "📁 파일 위치: $(pwd)/catering-extension.zip"
+echo ""
+echo "📋 다음 단계:"
+echo "1. Chrome Web Store 개발자 콘솔 접속: https://chrome.google.com/webstore/devconsole"
+echo "2. 새 항목 추가 → ZIP 파일 업로드"
+echo "3. 스토어 정보 입력 및 제출"
 

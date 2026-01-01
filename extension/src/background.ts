@@ -7,6 +7,7 @@ import {
 const ALARM_NAME = "catering-reservation-alarm";
 const ALARM_NAME_10MIN = "catering-reservation-alarm-10min";
 const ALARM_NAME_5MIN = "catering-reservation-alarm-5min";
+const ALARM_NAME_KEEPALIVE = "catering-keepalive-alarm";
 const TARGET_URL = "https://oz.d1qwefwlwtxtfr.amplifyapp.com/apply/";
 
 /**
@@ -25,10 +26,20 @@ chrome.runtime.onInstalled.addListener(async () => {
  * SOTA: 정확한 시간 계산 및 알람 상태 확인
  */
 async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
-  // 기존 알람 모두 제거
+  // 기존 알람 모두 제거 (keep-alive 제외)
   await chrome.alarms.clear(ALARM_NAME);
   await chrome.alarms.clear(ALARM_NAME_10MIN);
   await chrome.alarms.clear(ALARM_NAME_5MIN);
+
+  // Keep-alive 알람 설정 (Service Worker가 비활성화되지 않도록)
+  // 4분마다 실행 (Service Worker는 약 30초 후 비활성화되므로 여유있게 설정)
+  const existingKeepAlive = await chrome.alarms.get(ALARM_NAME_KEEPALIVE);
+  if (!existingKeepAlive) {
+    await chrome.alarms.create(ALARM_NAME_KEEPALIVE, {
+      periodInMinutes: 4, // 4분마다 반복
+    });
+    console.log("[Catering] ✅ Keep-alive alarm set (4 minutes interval)");
+  }
 
   if (!schedule.enabled || !schedule.reservationData) {
     console.log("[Catering] ⚠️ Alarm disabled or no reservation data", {
@@ -130,6 +141,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       : "unknown",
     currentTime: new Date().toLocaleString("ko-KR"),
   });
+
+  // Keep-alive 알람 처리 (Service Worker 활성화 유지)
+  if (alarm.name === ALARM_NAME_KEEPALIVE) {
+    console.log("[Catering] 💓 Keep-alive: Service Worker 활성화 유지");
+    // 아무 작업도 하지 않고 Service Worker만 깨움
+    return;
+  }
 
   // 10분 전 알람 처리
   if (alarm.name === ALARM_NAME_10MIN) {

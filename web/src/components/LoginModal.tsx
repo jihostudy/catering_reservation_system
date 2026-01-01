@@ -42,7 +42,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         redirectTo: redirectUrl,
         queryParams: {
           access_type: "offline",
-          prompt: "consent",
+          // prompt: "consent" 제거 - 기존 로그인 기록이 있으면 자동으로 로그인
           hd: "oliveyoung.co.kr", // Google Workspace 도메인 제한
         },
       },

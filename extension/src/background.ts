@@ -173,6 +173,17 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       }
     }
 
+    // chrome.tabs와 chrome.storage가 존재하는지 확인
+    if (!chrome.tabs) {
+      console.error("[Catering] ❌ chrome.tabs가 사용할 수 없습니다.");
+      return;
+    }
+
+    if (!chrome.storage || !chrome.storage.local) {
+      console.error("[Catering] ❌ chrome.storage.local이 사용할 수 없습니다.");
+      return;
+    }
+
     // 타겟 페이지를 백그라운드에서 열기 (SOTA: 완전 백그라운드 실행)
     console.log("[Catering] 🌐 Opening target page in background:", TARGET_URL);
     const tab = await chrome.tabs.create({
@@ -214,32 +225,59 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "GET_STATUS") {
-    chrome.storage.local.get(["schedule", "lastResult"]).then(async (data) => {
-      // 알람 상태도 함께 반환
-      const alarms = await chrome.alarms.getAll();
-      const alarm = alarms.find((a) => a.name === ALARM_NAME);
+    if (!chrome.storage || !chrome.storage.local) {
+      console.error("[Catering] chrome.storage.local이 사용할 수 없습니다.");
+      sendResponse({ schedule: null, lastResult: null, alarm: null });
+      return true;
+    }
 
-      sendResponse({
-        ...data,
-        alarm: alarm
-          ? {
-              name: alarm.name,
-              scheduledTime: alarm.scheduledTime
-                ? new Date(alarm.scheduledTime).toLocaleString("ko-KR")
-                : null,
-            }
-          : null,
+    chrome.storage.local
+      .get(["schedule", "lastResult"])
+      .then(async (data) => {
+        // 알람 상태도 함께 반환
+        const alarms = await chrome.alarms.getAll();
+        const alarm = alarms.find((a) => a.name === ALARM_NAME);
+
+        sendResponse({
+          ...data,
+          alarm: alarm
+            ? {
+                name: alarm.name,
+                scheduledTime: alarm.scheduledTime
+                  ? new Date(alarm.scheduledTime).toLocaleString("ko-KR")
+                  : null,
+              }
+            : null,
+        });
+      })
+      .catch((error) => {
+        console.error("[Catering] Error getting status:", error);
+        sendResponse({ schedule: null, lastResult: null, alarm: null });
       });
-    });
     return true; // async response
   }
 
   if (message.type === "UPDATE_SCHEDULE") {
+    if (!chrome.storage || !chrome.storage.local) {
+      console.error("[Catering] chrome.storage.local이 사용할 수 없습니다.");
+      sendResponse({
+        success: false,
+        error: "chrome.storage.local이 사용할 수 없습니다.",
+      });
+      return true;
+    }
+
     const newSchedule = message.schedule as ReservationSchedule;
-    chrome.storage.local.set({ schedule: newSchedule }).then(() => {
-      setupDailyAlarm(newSchedule);
-      sendResponse({ success: true });
-    });
+    chrome.storage.local
+      .set({ schedule: newSchedule })
+      .then(() => {
+        setupDailyAlarm(newSchedule);
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("[Catering] Error updating schedule:", error);
+        sendResponse({ success: false, error: error.message });
+      });
     return true;
   }
 
@@ -264,6 +302,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const reservationData = message.reservationData;
     const testMode = message.testMode || false;
 
+    // chrome.storage와 chrome.tabs가 존재하는지 확인
+    if (!chrome.storage || !chrome.storage.local) {
+      console.error("[Catering] chrome.storage.local이 사용할 수 없습니다.");
+      sendResponse({
+        success: false,
+        error: "chrome.storage.local이 사용할 수 없습니다.",
+      });
+      return true;
+    }
+
+    if (!chrome.tabs) {
+      console.error("[Catering] chrome.tabs가 사용할 수 없습니다.");
+      sendResponse({
+        success: false,
+        error: "chrome.tabs가 사용할 수 없습니다.",
+      });
+      return true;
+    }
+
     // Storage에 데이터 저장 (background script에서 안전하게 처리)
     chrome.storage.local
       .set({
@@ -280,30 +337,82 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           "[Catering] 📝 Reservation page opened with data, tab ID:",
           tab.id
         );
-        chrome.storage.local.set({ reservationTabId: tab.id });
+        // 탭 ID 저장 시에도 에러 처리
+        if (chrome.storage && chrome.storage.local) {
+          chrome.storage.local
+            .set({ reservationTabId: tab.id })
+            .catch((error) => {
+              console.warn(
+                "[Catering] Failed to save reservationTabId:",
+                error
+              );
+            });
+        }
         sendResponse({ success: true, tabId: tab.id });
       })
       .catch((error) => {
         console.error("[Catering] Error opening reservation page:", error);
-        sendResponse({ success: false, error: error.message });
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        sendResponse({ success: false, error: errorMessage });
       });
     return true; // async response
   }
 
   if (message.type === "CLOSE_RESERVATION_TAB") {
     // 예약 완료 후 백그라운드 탭 자동 닫기
+    if (!chrome.storage || !chrome.storage.local) {
+      console.error("[Catering] chrome.storage.local이 사용할 수 없습니다.");
+      sendResponse({
+        success: false,
+        error: "chrome.storage.local이 사용할 수 없습니다.",
+      });
+      return true;
+    }
+
+    if (!chrome.tabs) {
+      console.error("[Catering] chrome.tabs가 사용할 수 없습니다.");
+      sendResponse({
+        success: false,
+        error: "chrome.tabs가 사용할 수 없습니다.",
+      });
+      return true;
+    }
+
     chrome.storage.local.get("reservationTabId", (data) => {
       if (data.reservationTabId) {
         chrome.tabs.remove(data.reservationTabId, () => {
-          console.log(
-            "[Catering] 🗑️ Reservation tab closed:",
-            data.reservationTabId
-          );
-          chrome.storage.local.remove("reservationTabId");
+          // 탭이 이미 닫혔거나 존재하지 않는 경우 에러 처리
+          if (chrome.runtime.lastError) {
+            console.log(
+              "[Catering] ⚠️ Tab already closed or not found:",
+              chrome.runtime.lastError.message,
+              "(tab ID:",
+              data.reservationTabId,
+              ")"
+            );
+            // 에러가 발생해도 storage에서 reservationTabId는 제거
+            if (chrome.storage && chrome.storage.local) {
+              chrome.storage.local.remove("reservationTabId");
+            }
+          } else {
+            console.log(
+              "[Catering] 🗑️ Reservation tab closed:",
+              data.reservationTabId
+            );
+            if (chrome.storage && chrome.storage.local) {
+              chrome.storage.local.remove("reservationTabId");
+            }
+          }
         });
+      } else {
+        // reservationTabId가 없으면 이미 닫혔거나 저장되지 않은 경우
+        console.log(
+          "[Catering] ℹ️ No reservation tab ID found, tab may already be closed"
+        );
       }
+      sendResponse({ success: true });
     });
-    sendResponse({ success: true });
     return true;
   }
 
@@ -356,10 +465,17 @@ async function handleReservationResult(
   if (!result.success) {
     console.error("[Catering] ❌ Reservation failed:", result.message);
 
-    // 실패 횟수 확인
-    const recentFailures = history
-      .slice(0, 5)
-      .filter((r) => !r.success && !r.message.includes("이미 예약"));
+    // 재시도가 포함된 메시지인지 확인 (재시도 완료 후 최종 실패)
+    const isRetryCompleted = result.message.includes("회 재시도");
+    const isAllTimeSlotsFailed = result.message.includes("모든 차수 자리 없음");
+
+    // 실패 횟수 확인 (재시도 완료된 경우는 제외)
+    const recentFailures = history.slice(0, 5).filter(
+      (r) =>
+        !r.success &&
+        !r.message.includes("이미 예약") &&
+        !r.message.includes("회 재시도") // 재시도 완료된 경우는 제외
+    );
 
     if (recentFailures.length >= 3) {
       // 연속 3회 실패 시 알람 비활성화 제안
@@ -375,8 +491,33 @@ async function handleReservationResult(
         priority: 2, // 높은 우선순위
         requireInteraction: true, // 사용자가 직접 닫아야 함
       });
+    } else if (isAllTimeSlotsFailed) {
+      // 모든 차수 재시도 완료 후 실패한 경우
+      chrome.notifications.create({
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+        title: "모든 차수 자리 없음",
+        message:
+          "1차수, 2차수, 3차수 모두 자리가 없습니다. 내일 다시 시도합니다.",
+        priority: 1, // 일반 우선순위
+        requireInteraction: false,
+      });
+    } else if (isRetryCompleted) {
+      // 재시도 완료 후 실패 (일부 차수만 시도했지만 실패)
+      const failureTitle = cateringTypeDisplay
+        ? `${cateringTypeDisplay} 예약 실패`
+        : "예약 실패";
+
+      chrome.notifications.create({
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+        title: failureTitle,
+        message: result.message || "예약에 실패했습니다.",
+        priority: 1, // 일반 우선순위 (재시도 완료 후이므로)
+        requireInteraction: false,
+      });
     } else {
-      // 일반 실패 알림 (차수 정보 포함)
+      // 일반 실패 알림 (차수 정보 포함, 재시도 없음)
       const failureTitle = cateringTypeDisplay
         ? `${cateringTypeDisplay} 예약 실패`
         : "예약 실패";

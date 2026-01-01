@@ -79,6 +79,13 @@ function extractUserInfo(): UserInfo | null {
  */
 function sendMessagePromise<T = any>(message: any): Promise<T | null> {
   return new Promise((resolve) => {
+    // chrome.runtime이 존재하는지 확인
+    if (!chrome || !chrome.runtime) {
+      console.warn("[Catering] chrome.runtime이 사용할 수 없습니다.");
+      resolve(null);
+      return;
+    }
+
     chrome.runtime.sendMessage(message, (response) => {
       if (chrome.runtime.lastError) {
         console.warn(
@@ -98,6 +105,12 @@ function sendMessagePromise<T = any>(message: any): Promise<T | null> {
  */
 function saveToStorageDirectly(schedule: any): Promise<void> {
   return new Promise((resolve, reject) => {
+    // chrome.storage가 존재하는지 확인
+    if (!chrome || !chrome.storage || !chrome.storage.local) {
+      reject(new Error("chrome.storage.local이 사용할 수 없습니다."));
+      return;
+    }
+
     chrome.storage.local.set({ schedule }, () => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
@@ -113,6 +126,12 @@ function saveToStorageDirectly(schedule: any): Promise<void> {
  */
 function getFromStorageDirectly(): Promise<any> {
   return new Promise((resolve, reject) => {
+    // chrome.storage가 존재하는지 확인
+    if (!chrome || !chrome.storage || !chrome.storage.local) {
+      reject(new Error("chrome.storage.local이 사용할 수 없습니다."));
+      return;
+    }
+
     chrome.storage.local.get(["schedule"], (data) => {
       if (chrome.runtime.lastError) {
         reject(new Error(chrome.runtime.lastError.message));
@@ -347,6 +366,15 @@ function setupReservationButton(): void {
         }
 
         try {
+          // chrome.runtime이 존재하는지 확인
+          if (!chrome || !chrome.runtime) {
+            console.error("[Catering] chrome.runtime이 사용할 수 없습니다.");
+            alert(
+              "익스텐션이 제대로 로드되지 않았습니다. 페이지를 새로고침해주세요."
+            );
+            return;
+          }
+
           // 예약 데이터 준비
           const reservationData = {
             email: userInfo.email,
@@ -379,6 +407,9 @@ function setupReservationButton(): void {
           );
         } catch (error) {
           console.error("[Catering] 예약 실행 오류:", error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          console.error("[Catering] 에러 상세:", errorMessage);
         }
       });
 
@@ -410,6 +441,15 @@ function setupReservationButton(): void {
       }
 
       try {
+        // chrome.runtime이 존재하는지 확인
+        if (!chrome || !chrome.runtime) {
+          console.error("[Catering] chrome.runtime이 사용할 수 없습니다.");
+          alert(
+            "익스텐션이 제대로 로드되지 않았습니다. 페이지를 새로고침해주세요."
+          );
+          return;
+        }
+
         const reservationData = {
           email: userInfo.email,
           name: userInfo.name,
@@ -441,6 +481,9 @@ function setupReservationButton(): void {
         );
       } catch (error) {
         console.error("[Catering] 예약 실행 오류:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error("[Catering] 에러 상세:", errorMessage);
       }
     });
   } else {

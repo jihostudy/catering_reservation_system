@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Catering - 자동 케이터링 예약 시스템",
-  description: "오후 3시 정각 자동 케이터링 예약 시스템",
+  title: "올리브영 자동 케이터링 예약 시스템",
+  description: "올리브영 케이터링 예약을 오후 3시 정각에 자동으로 완료하는 시스템",
 };
 
 export default function RootLayout({

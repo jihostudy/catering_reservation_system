@@ -134,28 +134,54 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   // 10분 전 알람 처리
   if (alarm.name === ALARM_NAME_10MIN) {
     console.log("[Catering] ⏰ 10분 전 알림 표시");
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-      title: "예약 10분 전",
-      message: "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
-      priority: 2,
-      requireInteraction: false,
-    });
+    chrome.notifications.create(
+      {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+        title: "예약 10분 전",
+        message:
+          "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
+        priority: 2,
+        requireInteraction: false,
+      },
+      (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[Catering] 알림 생성 실패:",
+            chrome.runtime.lastError.message
+          );
+        } else {
+          console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+        }
+      }
+    );
     return;
   }
 
   // 5분 전 알람 처리
   if (alarm.name === ALARM_NAME_5MIN) {
     console.log("[Catering] ⏰ 5분 전 알림 표시");
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-      title: "예약 5분 전",
-      message: "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
-      priority: 2,
-      requireInteraction: false,
-    });
+    chrome.notifications.create(
+      {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+        title: "예약 5분 전",
+        message:
+          "곧 예약이 시작됩니다. 크롬 브라우저를 끄지 말고 대기해주세요.",
+        priority: 2,
+        requireInteraction: false,
+      },
+      (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[Catering] 알림 생성 실패:",
+            chrome.runtime.lastError.message
+          );
+        } else {
+          console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+        }
+      }
+    );
     return;
   }
 
@@ -203,14 +229,26 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         });
 
         // 알림 표시
-        chrome.notifications.create({
-          type: "basic",
-          iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-          title: "ℹ️ 이미 예약됨",
-          message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
-          priority: 1,
-          requireInteraction: false,
-        });
+        chrome.notifications.create(
+          {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+            title: "이미 예약됨",
+            message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
+            priority: 1,
+            requireInteraction: false,
+          },
+          (notificationId) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                "[Catering] 알림 생성 실패:",
+                chrome.runtime.lastError.message
+              );
+            } else {
+              console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+            }
+          }
+        );
 
         // 다음 알람 재설정 (내일)
         setupDailyAlarm(schedule);
@@ -515,14 +553,26 @@ async function handleReservationResult(
     console.log("[Catering] ⚠️ Already reserved");
 
     // 알림 표시
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-      title: "이미 예약됨",
-      message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
-      priority: 1, // 일반 우선순위
-      requireInteraction: false,
-    });
+    chrome.notifications.create(
+      {
+        type: "basic",
+        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+        title: "이미 예약됨",
+        message: "오늘은 이미 예약하셨습니다. 내일 다시 시도합니다.",
+        priority: 1, // 일반 우선순위
+        requireInteraction: false,
+      },
+      (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            "[Catering] 알림 생성 실패:",
+            chrome.runtime.lastError.message
+          );
+        } else {
+          console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+        }
+      }
+    );
 
     // 다음 날 알람은 유지 (이미 설정되어 있음)
     return;
@@ -543,28 +593,52 @@ async function handleReservationResult(
         "[Catering] ⚠️ Multiple failures detected, consider disabling"
       );
 
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-        title: "예약 실패 반복",
-        message: "예약이 계속 실패하고 있습니다. 설정을 확인해주세요.",
-        priority: 2, // 높은 우선순위
-        requireInteraction: true, // 사용자가 직접 닫아야 함
-      });
+      chrome.notifications.create(
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+          title: "예약 실패 반복",
+          message: "예약이 계속 실패하고 있습니다. 설정을 확인해주세요.",
+          priority: 2, // 높은 우선순위
+          requireInteraction: true, // 사용자가 직접 닫아야 함
+        },
+        (notificationId) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              "[Catering] 알림 생성 실패:",
+              chrome.runtime.lastError.message
+            );
+          } else {
+            console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+          }
+        }
+      );
     } else {
       // 일반 실패 알림 (차수 정보 포함)
       const failureTitle = cateringTypeDisplay
         ? `${cateringTypeDisplay} 예약 실패`
         : "예약 실패";
 
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-        title: failureTitle,
-        message: result.message || "예약에 실패했습니다.",
-        priority: 2, // 높은 우선순위
-        requireInteraction: false,
-      });
+      chrome.notifications.create(
+        {
+          type: "basic",
+          iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+          title: failureTitle,
+          message: result.message || "예약에 실패했습니다.",
+          priority: 2, // 높은 우선순위
+          requireInteraction: false,
+        },
+        (notificationId) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              "[Catering] 알림 생성 실패:",
+              chrome.runtime.lastError.message
+            );
+          } else {
+            console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+          }
+        }
+      );
     }
 
     // 실패해도 다음 날 알람은 유지
@@ -579,14 +653,26 @@ async function handleReservationResult(
     ? `${cateringTypeDisplay} 예약 성공!`
     : "예약 성공!";
 
-  chrome.notifications.create({
-    type: "basic",
-    iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-    title: successTitle,
-    message: result.message || "예약이 완료되었습니다.",
-    priority: 2, // 높은 우선순위
-    requireInteraction: false, // 자동으로 사라짐
-  });
+  chrome.notifications.create(
+    {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
+      title: successTitle,
+      message: result.message || "예약이 완료되었습니다.",
+      priority: 2, // 높은 우선순위
+      requireInteraction: false, // 자동으로 사라짐
+    },
+    (notificationId) => {
+      if (chrome.runtime.lastError) {
+        console.error(
+          "[Catering] 알림 생성 실패:",
+          chrome.runtime.lastError.message
+        );
+      } else {
+        console.log("[Catering] 알림 생성 성공, ID:", notificationId);
+      }
+    }
+  );
 
   // 성공한 경우 오늘은 더 이상 시도하지 않음 (다음 날 알람은 유지)
   console.log("[Catering] Result saved:", result);

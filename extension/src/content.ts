@@ -426,14 +426,27 @@ function checkReservationStatus(): {
   const bodyText = document.body.textContent || "";
   const bodyHTML = document.body.innerHTML || "";
 
-  // 성공 메시지 패턴
+  // 디버깅: 페이지 내용 로그
+  console.log("[Catering] Checking reservation status...");
+  console.log(
+    "[Catering] Body text (first 500 chars):",
+    bodyText.substring(0, 500)
+  );
+  console.log("[Catering] Current URL:", window.location.href);
+
+  // 성공 메시지 패턴 (더 포괄적으로)
+  // 실제 케이터링 사이트: "신청이 완료되었습니다🎉"
   const successPatterns = [
+    /신청이 완료되었습니다/i, // 정확한 메시지 매칭 (이모지 무시)
+    /신청.*완료.*되었습니다/i, // 변형 패턴
     /예약.*성공/i,
     /신청.*완료/i,
     /예약.*완료/i,
     /신청.*성공/i,
     /success/i,
     /완료되었습니다/i,
+    /신청되었습니다/i,
+    /예약되었습니다/i,
   ];
 
   // 실패 메시지 패턴
@@ -473,7 +486,13 @@ function checkReservationStatus(): {
 
   // 페이지 URL 변경 확인 (성공 시 리다이렉트될 수 있음)
   const currentUrl = window.location.href;
-  if (currentUrl.includes("/success") || currentUrl.includes("/complete")) {
+  // 성공 시 /my/로 이동
+  if (
+    currentUrl.includes("/my/") ||
+    currentUrl.includes("/success") ||
+    currentUrl.includes("/complete")
+  ) {
+    console.log("[Catering] ✅ Success detected via URL:", currentUrl);
     return {
       success: true,
       message: "예약 성공 (URL 확인)",
@@ -481,6 +500,7 @@ function checkReservationStatus(): {
   }
 
   if (currentUrl.includes("/error") || currentUrl.includes("/fail")) {
+    console.log("[Catering] ❌ Failure detected via URL:", currentUrl);
     return {
       success: false,
       message: "예약 실패 (URL 확인)",
@@ -509,8 +529,12 @@ function checkReservationStatus(): {
     }
   }
 
+  // 성공 패턴 확인 (자리 없음보다 우선)
   for (const pattern of successPatterns) {
     if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      console.log("[Catering] ✅ Success pattern found:", pattern);
+      const match = bodyText.match(pattern) || bodyHTML.match(pattern);
+      console.log("[Catering] Matching text:", match?.[0]);
       return {
         success: true,
         message: "예약 성공",
@@ -518,9 +542,10 @@ function checkReservationStatus(): {
     }
   }
 
-  // 자리 없음 확인
+  // 자리 없음 확인 (성공 패턴이 없을 때만)
   for (const pattern of noSeatPatterns) {
     if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      console.log("[Catering] ❌ No seat pattern found:", pattern);
       return {
         success: false,
         message: "자리 없음",
@@ -528,8 +553,10 @@ function checkReservationStatus(): {
     }
   }
 
+  // 실패 패턴 확인
   for (const pattern of failurePatterns) {
     if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      console.log("[Catering] ❌ Failure pattern found:", pattern);
       return {
         success: false,
         message: "예약 실패",

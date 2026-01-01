@@ -40,7 +40,8 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
 
   const now = new Date();
   const targetTime = new Date();
-  targetTime.setHours(schedule.targetHour, schedule.targetMinute, 0, 0);
+  // 자동 예약 시간: 20:40 (테스트용)
+  targetTime.setHours(20, 40, 0, 0);
   targetTime.setSeconds(0, 0);
 
   // 이미 지난 시간이면 다음 날로 설정
@@ -261,7 +262,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await chrome.storage.local.set({
       pendingReservation: schedule.reservationData,
       reservationTabId: tab.id, // 탭 ID 저장 (나중에 닫기 위해)
-      retryAttempt: 0, // 재시도 횟수 초기화
+      reservationSource: "auto", // 실행 원인: 자동 예약
     });
 
     console.log(
@@ -392,7 +393,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .set({
         pendingReservation: reservationData,
         testMode: testMode,
-        retryAttempt: 0,
+        reservationSource: testMode ? "test" : "manual", // 실행 원인: 테스트 또는 수동
       })
       .then(() => {
         // 페이지 열기
@@ -511,7 +512,7 @@ async function handleReservationResult(
 
   // 이미 예약한 경우 처리
   if (!result.success && result.message.includes("이미 예약")) {
-    console.log("[Catering] ⚠️ Already reserved - skipping retry");
+    console.log("[Catering] ⚠️ Already reserved");
 
     // 알림 표시
     chrome.notifications.create({
@@ -531,17 +532,10 @@ async function handleReservationResult(
   if (!result.success) {
     console.error("[Catering] ❌ Reservation failed:", result.message);
 
-    // 재시도가 포함된 메시지인지 확인 (재시도 완료 후 최종 실패)
-    const isRetryCompleted = result.message.includes("회 재시도");
-    const isAllTimeSlotsFailed = result.message.includes("모든 차수 자리 없음");
-
-    // 실패 횟수 확인 (재시도 완료된 경우는 제외)
-    const recentFailures = history.slice(0, 5).filter(
-      (r) =>
-        !r.success &&
-        !r.message.includes("이미 예약") &&
-        !r.message.includes("회 재시도") // 재시도 완료된 경우는 제외
-    );
+    // 실패 횟수 확인
+    const recentFailures = history
+      .slice(0, 5)
+      .filter((r) => !r.success && !r.message.includes("이미 예약"));
 
     if (recentFailures.length >= 3) {
       // 연속 3회 실패 시 알람 비활성화 제안
@@ -557,33 +551,8 @@ async function handleReservationResult(
         priority: 2, // 높은 우선순위
         requireInteraction: true, // 사용자가 직접 닫아야 함
       });
-    } else if (isAllTimeSlotsFailed) {
-      // 모든 차수 재시도 완료 후 실패한 경우
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-        title: "모든 차수 자리 없음",
-        message:
-          "1차수, 2차수, 3차수 모두 자리가 없습니다. 내일 다시 시도합니다.",
-        priority: 1, // 일반 우선순위
-        requireInteraction: false,
-      });
-    } else if (isRetryCompleted) {
-      // 재시도 완료 후 실패 (일부 차수만 시도했지만 실패)
-      const failureTitle = cateringTypeDisplay
-        ? `${cateringTypeDisplay} 예약 실패`
-        : "예약 실패";
-
-      chrome.notifications.create({
-        type: "basic",
-        iconUrl: chrome.runtime.getURL("public/icons/icon128.png"),
-        title: failureTitle,
-        message: result.message || "예약에 실패했습니다.",
-        priority: 1, // 일반 우선순위 (재시도 완료 후이므로)
-        requireInteraction: false,
-      });
     } else {
-      // 일반 실패 알림 (차수 정보 포함, 재시도 없음)
+      // 일반 실패 알림 (차수 정보 포함)
       const failureTitle = cateringTypeDisplay
         ? `${cateringTypeDisplay} 예약 실패`
         : "예약 실패";
@@ -598,7 +567,7 @@ async function handleReservationResult(
       });
     }
 
-    // 실패해도 다음 날 알람은 유지 (재시도)
+    // 실패해도 다음 날 알람은 유지
     return;
   }
 

@@ -51,45 +51,6 @@ const CATERING_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * 다음 차수로 이동 (1차수 → 2차수 → 3차수)
- * 콤보와 샐러드는 null 반환 (재시도 없음)
- */
-function getNextCateringType(currentType: string): string | null {
-  // 현재 타입이 재시도 가능한 차수인지 확인
-  if (
-    currentType === "콤보" ||
-    currentType === "샐러드" ||
-    currentType === "04" ||
-    currentType === "05"
-  ) {
-    return null; // 콤보와 샐러드는 재시도 없음
-  }
-
-  // 3차수는 마지막이므로 null
-  if (currentType === "3차수" || currentType === "03") {
-    return null;
-  }
-
-  // 타입 매핑 (한글 → 한글, 코드 → 코드)
-  const typeMap: Record<string, string> = {
-    "1차수": "2차수",
-    "2차수": "3차수",
-    "01": "02",
-    "02": "03",
-  };
-
-  return typeMap[currentType] || null;
-}
-
-/**
- * 차수 타입인지 확인 (1차수, 2차수, 3차수만)
- */
-function isTimeSlotType(cateringType: string): boolean {
-  const timeSlots = ["1차수", "2차수", "3차수", "01", "02", "03"];
-  return timeSlots.includes(cateringType);
-}
-
-/**
  * DOM 요소 찾기 (여러 선택자 시도)
  */
 function findElement<T extends Element>(selectors: string): T | null {
@@ -346,13 +307,8 @@ async function fillReservationForm(
     submitButton.click();
     console.log("[Catering] Form submitted, waiting for result...");
 
-    // 재시도 중인지 확인 (SOTA: 재시도 시 빠른 확인)
-    const retryStorage = await chrome.storage.local.get("retryAttempt");
-    const isRetry = (retryStorage.retryAttempt as number) > 0;
-
     // 제출 후 결과 확인 (SOTA: 성공/실패/이미 예약 확인)
-    // 재시도 시에는 빠르게 확인 (타임아웃 최소화)
-    const result = await waitForReservationResult(isTestMode, 10000, isRetry);
+    const result = await waitForReservationResult(isTestMode, 10000);
     return result;
   } catch (error) {
     const errorMessage =
@@ -365,12 +321,10 @@ async function fillReservationForm(
 /**
  * 제출 후 예약 결과 확인 (성공/실패/이미 예약)
  * SOTA: 페이지 변화 감지 및 메시지 파싱
- * 재시도 시 즉시 확인 (타임아웃 최소화)
  */
 async function waitForReservationResult(
   isTestMode: boolean,
-  timeoutMs = 10000,
-  isRetry = false
+  timeoutMs = 10000
 ): Promise<ReservationResult> {
   const timestamp = Date.now();
   const startTime = Date.now();
@@ -410,9 +364,8 @@ async function waitForReservationResult(
     });
 
     // 3. 주기적으로 확인 (MutationObserver가 놓칠 수 있음)
-    // 재시도 시에는 더 빠르게 확인 (0.1초마다, 타임아웃 3초)
-    const checkInterval = isRetry ? 100 : 500; // 재시도: 0.1초, 일반: 0.5초
-    const actualTimeout = isRetry ? 3000 : timeoutMs; // 재시도: 3초, 일반: 10초
+    const checkInterval = 500; // 0.5초마다 확인
+    const actualTimeout = timeoutMs;
 
     const intervalId = setInterval(() => {
       const status = checkReservationStatus();
@@ -494,7 +447,7 @@ function checkReservationStatus(): {
     /불가능/i,
   ];
 
-  // 자리 없음 패턴 (다음 차수로 재시도 가능)
+  // 자리 없음 패턴
   const noSeatPatterns = [
     /자리.*없/i,
     /마감/i,
@@ -535,8 +488,20 @@ function checkReservationStatus(): {
   }
 
   // 텍스트 기반 확인
+  // "이미 해당 날짜에 신청하셨습니다"는 성공으로 처리 (이미 예약했다는 것은 성공)
   for (const pattern of alreadyReservedPatterns) {
     if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
+      // "이미 해당 날짜에 신청하셨습니다" 패턴 확인
+      if (
+        /이미.*해당.*날짜.*신청/i.test(bodyText) ||
+        /이미.*해당.*날짜.*신청/i.test(bodyHTML)
+      ) {
+        return {
+          success: true,
+          message: "이미 해당 날짜에 신청하셨습니다",
+        };
+      }
+      // 기타 "이미 예약" 메시지는 실패로 처리
       return {
         success: false,
         message: "이미 예약하셨습니다",
@@ -553,7 +518,7 @@ function checkReservationStatus(): {
     }
   }
 
-  // 자리 없음 확인 (다음 차수로 재시도 가능)
+  // 자리 없음 확인
   for (const pattern of noSeatPatterns) {
     if (pattern.test(bodyText) || pattern.test(bodyHTML)) {
       return {
@@ -590,45 +555,47 @@ function checkReservationStatus(): {
 
 /**
  * 예약 결과를 background script로 전송
- * SOTA: 백그라운드 실행 후 탭 자동 닫기 (재시도 중이면 닫지 않음)
+ * SOTA: 백그라운드 실행 후 탭 자동 닫기
  */
-function sendResultToBackground(result: ReservationResult): void {
-  chrome.runtime.sendMessage({ type: "RESERVATION_RESULT", result }, () => {
-    // 재시도 중이 아닐 때만 탭 닫기
-    chrome.storage.local.get("retryAttempt", (data) => {
-      const retryAttempt = (data.retryAttempt as number) || 0;
+async function sendResultToBackground(
+  result: ReservationResult
+): Promise<void> {
+  // 실행 원인 확인
+  const storage = await chrome.storage.local.get("reservationSource");
+  const source = storage.reservationSource as string | undefined;
 
-      // 재시도 중이 아니고, 성공했거나 재시도 불가능한 실패인 경우에만 탭 닫기
-      if (retryAttempt === 0 || result.success) {
-        // 예약 완료 후 백그라운드 탭 자동 닫기 (사용자 방해 없음)
-        // 약간의 지연을 주어 제출이 완료될 시간 확보
-        setTimeout(() => {
-          chrome.runtime
-            .sendMessage({
-              type: "CLOSE_RESERVATION_TAB",
-            })
-            .catch(() => {
-              // 메시지 전송 실패는 무시 (탭이 이미 닫혔을 수 있음)
-            });
-        }, 2000); // 2초 후 탭 닫기
-      } else {
-        console.log("[Catering] Keeping tab open for retry...");
-      }
-    });
+  // 메시지에 실행 원인 추가
+  if (source) {
+    const sourceLabel =
+      source === "auto"
+        ? "[자동 예약]"
+        : source === "test"
+        ? "[테스트]"
+        : "[수동]";
+    result.message = `${sourceLabel} ${result.message}`;
+  }
+
+  chrome.runtime.sendMessage({ type: "RESERVATION_RESULT", result }, () => {
+    // 예약 완료 후 백그라운드 탭 자동 닫기 (사용자 방해 없음)
+    // 약간의 지연을 주어 제출이 완료될 시간 확보
+    setTimeout(() => {
+      chrome.runtime
+        .sendMessage({
+          type: "CLOSE_RESERVATION_TAB",
+        })
+        .catch(() => {
+          // 메시지 전송 실패는 무시 (탭이 이미 닫혔을 수 있음)
+        });
+    }, 2000); // 2초 후 탭 닫기
   });
 }
 
 /**
  * 페이지 로드 시 pending 예약 확인 및 실행
- * SOTA: 자리 없으면 다음 차수로 자동 재시도 (1차수 → 2차수 → 3차수)
  */
 async function checkAndExecutePendingReservation(): Promise<void> {
-  const storage = await chrome.storage.local.get([
-    "pendingReservation",
-    "retryAttempt",
-  ]);
+  const storage = await chrome.storage.local.get("pendingReservation");
   const pendingData = storage.pendingReservation as ReservationData | null;
-  const retryAttempt = (storage.retryAttempt as number) || 0;
 
   if (!pendingData) {
     console.log("[Catering] No pending reservation");
@@ -637,173 +604,15 @@ async function checkAndExecutePendingReservation(): Promise<void> {
 
   console.log("[Catering] Found pending reservation, executing...", {
     cateringType: pendingData.cateringType,
-    retryAttempt,
   });
 
   // 폼 입력 실행
   const result = await fillReservationForm(pendingData);
 
-  // 자리 없음이고 차수 타입인 경우 다음 차수로 즉시 재시도 (SOTA: 시간 제한 없이 바로바로)
-  if (
-    !result.success &&
-    result.message === "자리 없음" &&
-    isTimeSlotType(pendingData.cateringType) &&
-    retryAttempt < 2 // 최대 2회 재시도 (1차수 → 2차수 → 3차수)
-  ) {
-    const nextType = getNextCateringType(pendingData.cateringType);
-
-    if (nextType) {
-      console.log(
-        `[Catering] 🔄 No seats available for ${
-          pendingData.cateringType
-        }, trying next: ${nextType} IMMEDIATELY (attempt ${retryAttempt + 1})`
-      );
-
-      // 다음 차수로 업데이트
-      const nextReservationData: ReservationData = {
-        ...pendingData,
-        cateringType: nextType,
-      };
-
-      // 재시도 횟수 증가
-      await chrome.storage.local.set({
-        pendingReservation: nextReservationData,
-        retryAttempt: retryAttempt + 1,
-      });
-
-      // SOTA: 페이지 새로고침 대신 폼을 바로 다시 채우기 (더 빠름)
-      const form = document.querySelector("form");
-      const typeSelect = findElement<HTMLSelectElement>(FORM_SELECTORS.type);
-
-      if (form && typeSelect) {
-        // 폼이 아직 있으면 즉시 다음 차수로 재시도 (페이지 새로고침 없이)
-        console.log(
-          "[Catering] ⚡ Form still available, retrying IMMEDIATELY without reload"
-        );
-
-        // 다음 차수로 변경
-        const mappedType = CATERING_TYPE_MAP[nextType] || nextType;
-        setInputValue(typeSelect, mappedType);
-
-        // SOTA: 최소 지연으로 즉시 제출 (50ms만 대기)
-        setTimeout(() => {
-          const submitButton = findSubmitButton();
-          if (submitButton && !submitButton.disabled) {
-            submitButton.click();
-            console.log(
-              "[Catering] ⚡⚡⚡ IMMEDIATE retry submitted (50ms delay only)"
-            );
-            // 재시도는 checkAndExecutePendingReservation이 다시 호출되어 처리됨
-            // (페이지가 리로드되지 않으므로 함수가 다시 실행되지 않음)
-            // 따라서 결과 확인을 여기서 직접 처리
-            setTimeout(async () => {
-              const retryResult = await waitForReservationResult(
-                false,
-                3000,
-                true
-              );
-
-              // 재시도 결과가 또 자리 없음이면 다음 차수로
-              if (
-                !retryResult.success &&
-                retryResult.message === "자리 없음" &&
-                retryAttempt + 1 < 2
-              ) {
-                const nextNextType = getNextCateringType(nextType);
-                if (nextNextType) {
-                  // 3차수로 재시도
-                  const nextNextData: ReservationData = {
-                    ...nextReservationData,
-                    cateringType: nextNextType,
-                  };
-                  await chrome.storage.local.set({
-                    pendingReservation: nextNextData,
-                    retryAttempt: retryAttempt + 2,
-                  });
-
-                  // 즉시 다시 시도
-                  const typeSelect2 = findElement<HTMLSelectElement>(
-                    FORM_SELECTORS.type
-                  );
-                  if (typeSelect2) {
-                    const mappedType2 =
-                      CATERING_TYPE_MAP[nextNextType] || nextNextType;
-                    setInputValue(typeSelect2, mappedType2);
-                    setTimeout(() => {
-                      const submitButton2 = findSubmitButton();
-                      if (submitButton2 && !submitButton2.disabled) {
-                        submitButton2.click();
-                        console.log(
-                          "[Catering] ⚡⚡⚡ Second immediate retry (3차수)"
-                        );
-
-                        // 최종 결과 확인
-                        setTimeout(async () => {
-                          const finalResult = await waitForReservationResult(
-                            false,
-                            3000,
-                            true
-                          );
-                          await chrome.storage.local.remove(
-                            "pendingReservation"
-                          );
-                          await chrome.storage.local.remove("retryAttempt");
-                          finalResult.message = `[${
-                            retryAttempt + 2
-                          }회 재시도] ${finalResult.message}`;
-                          sendResultToBackground(finalResult);
-                        }, 500);
-                      }
-                    }, 50);
-                  }
-                } else {
-                  // 최종 실패
-                  await chrome.storage.local.remove("pendingReservation");
-                  await chrome.storage.local.remove("retryAttempt");
-                  retryResult.message = `[${
-                    retryAttempt + 1
-                  }회 재시도] 모든 차수 자리 없음`;
-                  sendResultToBackground(retryResult);
-                }
-              } else {
-                // 성공 또는 다른 실패
-                await chrome.storage.local.remove("pendingReservation");
-                await chrome.storage.local.remove("retryAttempt");
-                retryResult.message = `[${retryAttempt + 1}회 재시도] ${
-                  retryResult.message
-                }`;
-                sendResultToBackground(retryResult);
-              }
-            }, 500);
-          } else {
-            // 제출 버튼이 없으면 페이지 새로고침
-            console.log("[Catering] Submit button not available, reloading...");
-            window.location.reload();
-          }
-        }, 50); // 0.05초만 대기 (최소화)
-      } else {
-        // 폼이 없으면 페이지 새로고침 (리다이렉트된 경우)
-        console.log(
-          "[Catering] Form not available, reloading page for retry..."
-        );
-        window.location.reload();
-      }
-      return;
-    } else {
-      console.log("[Catering] ❌ No more time slots available (reached 3차수)");
-    }
-  }
-
-  // 재시도 완료 또는 성공/다른 실패 - pending 데이터 삭제
+  // pending 데이터 삭제
   await chrome.storage.local.remove("pendingReservation");
-  await chrome.storage.local.remove("retryAttempt");
 
-  // 최종 결과 전송
-  if (retryAttempt > 0) {
-    // 재시도한 경우 메시지에 포함
-    result.message = `[${retryAttempt}회 재시도] ${result.message}`;
-  }
-
+  // 결과 전송
   sendResultToBackground(result);
 }
 

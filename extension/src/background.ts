@@ -312,7 +312,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const tab = await chrome.tabs.create({
       url: TARGET_URL,
       active: false, // 백그라운드에서 열기 (사용자 방해 없음)
+      pinned: false, // 고정하지 않음
     });
+
+    // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
+    if (tab.id) {
+      await chrome.tabs.update(tab.id, { active: false });
+      console.log("[Catering] ✅ Tab kept in background, ID:", tab.id);
+    }
 
     // content script에 예약 데이터 전달을 위해 저장
     await chrome.storage.local.set({
@@ -407,15 +414,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "OPEN_RESERVATION_PAGE") {
     const url = message.url || TARGET_URL;
     // 테스트 모드도 백그라운드에서 실행
-    chrome.tabs.create({ url, active: false }).then((tab) => {
-      console.log(
-        "[Catering] 📝 Test reservation page opened in background, tab ID:",
-        tab.id
-      );
-      // 테스트 모드 탭 ID도 저장
-      chrome.storage.local.set({ reservationTabId: tab.id });
-      sendResponse({ success: true, tabId: tab.id });
-    });
+    chrome.tabs
+      .create({
+        url,
+        active: false, // 백그라운드에서 열기
+        pinned: false, // 고정하지 않음
+      })
+      .then(async (tab) => {
+        // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
+        if (tab.id) {
+          await chrome.tabs.update(tab.id, { active: false });
+        }
+        console.log(
+          "[Catering] 📝 Test reservation page opened in background, tab ID:",
+          tab.id
+        );
+        // 테스트 모드 탭 ID도 저장
+        chrome.storage.local.set({ reservationTabId: tab.id });
+        sendResponse({ success: true, tabId: tab.id });
+      });
     return true; // async response
   }
 
@@ -452,12 +469,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         reservationSource: testMode ? "test" : "manual", // 실행 원인: 테스트 또는 수동
       })
       .then(() => {
-        // 페이지 열기
-        return chrome.tabs.create({ url, active: false });
+        // 페이지 열기 (백그라운드)
+        return chrome.tabs.create({
+          url,
+          active: false, // 백그라운드에서 열기
+          pinned: false, // 고정하지 않음
+        });
       })
-      .then((tab) => {
+      .then(async (tab) => {
+        // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
+        if (tab.id) {
+          await chrome.tabs.update(tab.id, { active: false });
+        }
         console.log(
-          "[Catering] 📝 Reservation page opened with data, tab ID:",
+          "[Catering] 📝 Reservation page opened in background, tab ID:",
           tab.id
         );
         // 탭 ID 저장 시에도 에러 처리

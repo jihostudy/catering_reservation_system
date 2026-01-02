@@ -8,16 +8,49 @@ const USER_API = `${DASHBOARD_URL}/api/users`;
 let currentSchedule = null;
 let isAuthenticated = false;
 
-document.addEventListener("DOMContentLoaded", async () => {
-  // 로그인 상태 확인 및 버튼 표시
-  await checkAuthAndUpdateButtons();
+/**
+ * 로딩 표시 제어 함수
+ */
+function showLoading(text = "데이터를 불러오는 중...") {
+  const overlay = document.getElementById("loadingOverlay");
+  const loadingText = document.getElementById("loadingText");
+  if (overlay && loadingText) {
+    loadingText.textContent = text;
+    overlay.classList.add("show");
+  }
+}
 
-  // 로그인한 경우 웹사이트에서 사용자 정보 가져오기
-  if (isAuthenticated) {
-    await syncUserDataFromWeb();
-  } else {
-    // 로그인하지 않은 경우: 로컬 데이터 초기화
-    clearLocalDataIfNotAuthenticated();
+function hideLoading() {
+  const overlay = document.getElementById("loadingOverlay");
+  if (overlay) {
+    overlay.classList.remove("show");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // 초기 로딩 표시
+  showLoading("초기화 중...");
+
+  try {
+    // 로그인 상태 확인 및 버튼 표시
+    showLoading("로그인 상태 확인 중...");
+    await checkAuthAndUpdateButtons();
+
+    // 로그인한 경우 웹사이트에서 사용자 정보 가져오기
+    if (isAuthenticated) {
+      showLoading("사용자 정보 불러오는 중...");
+      await syncUserDataFromWeb();
+    } else {
+      // 로그인하지 않은 경우: 로컬 데이터 초기화
+      showLoading("로컬 데이터 확인 중...");
+      clearLocalDataIfNotAuthenticated();
+      loadStatusFromStorage();
+    }
+  } catch (error) {
+    console.error("[Catering] 초기화 중 오류:", error);
+  } finally {
+    // 로딩 완료
+    hideLoading();
   }
 
   // 토글 버튼 클릭
@@ -43,6 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       };
 
       // Chrome Storage 업데이트
+      showLoading("설정 저장 중...");
       chrome.runtime.sendMessage(
         {
           type: "UPDATE_SCHEDULE",
@@ -67,7 +101,11 @@ document.addEventListener("DOMContentLoaded", async () => {
               });
             } catch (error) {
               console.error("Failed to sync enabled status to web:", error);
+            } finally {
+              hideLoading();
             }
+          } else {
+            hideLoading();
           }
         }
       );
@@ -143,6 +181,7 @@ async function checkAuthStatus() {
 
 async function checkAuthAndUpdateButtons() {
   try {
+    showLoading("로그인 상태 확인 중...");
     const response = await fetch(AUTH_STATUS_API, {
       credentials: "include",
     });
@@ -174,6 +213,8 @@ async function checkAuthAndUpdateButtons() {
     loginButton.style.display = "block";
     // 에러 시에도 로컬 데이터 초기화
     clearLocalDataIfNotAuthenticated();
+  } finally {
+    // 로딩은 상위 함수에서 처리
   }
 }
 
@@ -195,6 +236,7 @@ function clearLocalDataIfNotAuthenticated() {
  */
 async function syncUserDataFromWeb() {
   try {
+    showLoading("사용자 정보 동기화 중...");
     console.log("[Catering] Fetching user data from:", USER_API);
     const response = await fetch(USER_API, {
       credentials: "include",
@@ -209,6 +251,7 @@ async function syncUserDataFromWeb() {
       );
       // 실패해도 기존 데이터로 UI 업데이트
       loadStatusFromStorage();
+      hideLoading();
       return;
     }
 
@@ -278,6 +321,7 @@ async function syncUserDataFromWeb() {
     console.error("Failed to sync user data from web:", error);
     // 에러 발생 시 기존 데이터로 UI 업데이트
     loadStatusFromStorage();
+    hideLoading();
   }
 }
 
@@ -286,6 +330,7 @@ async function syncUserDataFromWeb() {
  * Background script 연결 오류 시 직접 Storage 접근
  */
 function loadStatusFromStorage() {
+  showLoading("데이터 불러오는 중...");
   // 방법 1: Background script를 통한 접근 시도
   chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
     if (chrome.runtime.lastError) {
@@ -304,12 +349,14 @@ function loadStatusFromStorage() {
         currentSchedule = schedule;
         updateStatusUI(schedule);
         updateLastResultUI(data.lastResult || null);
+        hideLoading();
       });
     } else if (response) {
       const { schedule, lastResult } = response;
       currentSchedule = schedule;
       updateStatusUI(schedule);
       updateLastResultUI(lastResult);
+      hideLoading();
     } else {
       // 응답이 없으면 직접 Storage 접근
       chrome.storage.local.get(["schedule", "lastResult"], (data) => {
@@ -322,6 +369,7 @@ function loadStatusFromStorage() {
         currentSchedule = schedule;
         updateStatusUI(schedule);
         updateLastResultUI(data.lastResult || null);
+        hideLoading();
       });
     }
   });

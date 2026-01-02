@@ -23,6 +23,8 @@ lerna-debug.log*
 # Misc
 .DS_Store
 *.pem
+_AI_docs/
+_docs/
 
 # Debug
 .vscode/

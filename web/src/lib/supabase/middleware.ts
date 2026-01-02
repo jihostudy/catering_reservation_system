@@ -37,6 +37,7 @@ export async function updateSession(request: NextRequest) {
   // 보호된 경로 체크
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard');
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
+  const isHomePage = request.nextUrl.pathname === '/';
 
   if (isProtectedRoute && !user) {
     // 미인증 사용자는 메인 페이지로
@@ -45,6 +46,11 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthRoute && user) {
     // 이미 로그인된 사용자는 대시보드로
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // 메인 페이지에 로그인된 사용자가 접근하면 대시보드로 리다이렉트
+  if (isHomePage && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

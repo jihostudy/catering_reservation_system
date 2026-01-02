@@ -2,36 +2,9 @@
 
 import { ErrorHandler } from "@/components/ErrorHandler";
 import { LoginButton } from "@/components/LoginButton";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 
 export default function Home() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setIsLoading(false);
-      if (user) {
-        router.push("/dashboard");
-      }
-    };
-    checkUser();
-  }, [router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
-
   return (
     <>
       <Suspense fallback={null}>

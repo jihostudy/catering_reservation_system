@@ -3,6 +3,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { ReservationForm } from "@/components/ReservationForm";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 const ALLOWED_DOMAIN = "@oliveyoung.co.kr";
 
@@ -30,14 +31,16 @@ export default async function DashboardPage() {
       {/* 헤더 */}
       <header className="bg-gray-800 dark:bg-gray-900 border-b border-gray-700 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div>
-            <h1 className="text-lg font-semibold text-white dark:text-gray-50">
-              Catering
-            </h1>
-            <p className="text-xs text-gray-300 dark:text-gray-400 mt-0.5">
-              자동 예약 관리
-            </p>
-          </div>
+          <Link href="/" className="hover:opacity-80 transition-opacity cursor-pointer">
+            <div>
+              <h1 className="text-lg font-semibold text-white dark:text-gray-50">
+                Catering
+              </h1>
+              <p className="text-xs text-gray-300 dark:text-gray-400 mt-0.5">
+                자동 예약 관리
+              </p>
+            </div>
+          </Link>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-200 dark:text-gray-300">
               {user.email}

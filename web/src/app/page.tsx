@@ -2,6 +2,7 @@
 
 import { ErrorHandler } from "@/components/ErrorHandler";
 import { LoginButton } from "@/components/LoginButton";
+import { Header } from "@/components/Header";
 import { Suspense } from "react";
 
 export default function Home() {
@@ -10,7 +11,8 @@ export default function Home() {
       <Suspense fallback={null}>
         <ErrorHandler />
       </Suspense>
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-black relative overflow-hidden">
+      <Header />
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-black relative overflow-hidden pt-16">
         {/* 배경 애니메이션 요소 */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-green-400/10 rounded-full blur-3xl animate-pulse"></div>

@@ -13,24 +13,76 @@ const FORM_SELECTORS = {
 
 /**
  * 제출 버튼 찾기 (타입과 텍스트 모두 확인)
+ * SOTA: 다양한 선택자와 텍스트 패턴으로 강화
  */
 function findSubmitButton(): HTMLButtonElement | null {
-  // 먼저 type="submit" 버튼 찾기
-  const button = findElement<HTMLButtonElement>(FORM_SELECTORS.submitButton);
-  if (button && button.textContent?.includes("신청")) {
-    return button;
-  }
-  // 텍스트로도 찾기
-  const allButtons = document.querySelectorAll("button");
-  for (const btn of Array.from(allButtons)) {
+  console.log("[Catering] 🔍 Searching for submit button...");
+
+  // 1. type="submit" 버튼 찾기
+  const submitButton = findElement<HTMLButtonElement>(
+    FORM_SELECTORS.submitButton
+  );
+  if (submitButton) {
+    const text = submitButton.textContent?.trim() || "";
+    console.log("[Catering] Found submit button (type=submit):", text);
     if (
-      btn.textContent?.includes("신청하기") ||
-      btn.textContent?.includes("신청")
+      text.includes("신청") ||
+      text.includes("제출") ||
+      text.includes("Submit")
     ) {
+      return submitButton;
+    }
+  }
+
+  // 2. 모든 버튼을 순회하며 텍스트로 찾기
+  const allButtons = document.querySelectorAll("button");
+  console.log(`[Catering] Total buttons found: ${allButtons.length}`);
+
+  for (const btn of Array.from(allButtons)) {
+    const text = btn.textContent?.trim() || "";
+    const innerText = btn.innerText?.trim() || "";
+    const combinedText = `${text} ${innerText}`;
+
+    // 다양한 패턴으로 찾기
+    if (
+      combinedText.includes("신청하기") ||
+      combinedText.includes("신청") ||
+      combinedText.includes("제출") ||
+      combinedText.includes("Submit") ||
+      combinedText.includes("Apply")
+    ) {
+      console.log("[Catering] ✅ Found submit button by text:", combinedText);
       return btn as HTMLButtonElement;
     }
   }
-  return button;
+
+  // 3. form 내부의 버튼 찾기
+  const form = findElement<HTMLFormElement>("form");
+  if (form) {
+    const formButtons = form.querySelectorAll("button");
+    for (const btn of Array.from(formButtons)) {
+      const text = btn.textContent?.trim() || "";
+      if (text.includes("신청") || text.includes("제출")) {
+        console.log("[Catering] ✅ Found submit button in form:", text);
+        return btn as HTMLButtonElement;
+      }
+    }
+  }
+
+  // 4. 마지막 시도: disabled가 아닌 버튼 중 가장 가능성 높은 것
+  for (const btn of Array.from(allButtons)) {
+    if (!btn.disabled && btn.offsetParent !== null) {
+      // 화면에 보이는 버튼 중
+      const text = btn.textContent?.trim() || "";
+      if (text.length > 0 && text.length < 20) {
+        // 짧은 텍스트의 버튼 (제출 버튼일 가능성)
+        console.log("[Catering] ⚠️ Potential submit button:", text);
+      }
+    }
+  }
+
+  console.error("[Catering] ❌ Submit button not found");
+  return null;
 }
 
 /**
@@ -285,9 +337,38 @@ async function fillReservationForm(
       );
     }
 
-    // 제출 버튼 클릭
-    const submitButton = findSubmitButton();
+    // 제출 버튼이 나타날 때까지 대기 (React 등이 상태를 업데이트할 시간 필요)
+    console.log("[Catering] ⏳ Waiting for submit button to appear...");
+    await new Promise((r) => setTimeout(r, 1000)); // 1초 대기
+
+    // 제출 버튼 찾기 (여러 번 시도)
+    let submitButton: HTMLButtonElement | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      submitButton = findSubmitButton();
+      if (submitButton) {
+        console.log(
+          `[Catering] ✅ Submit button found on attempt ${attempt + 1}`
+        );
+        break;
+      }
+      console.log(
+        `[Catering] ⏳ Submit button not found, retrying... (${attempt + 1}/5)`
+      );
+      await new Promise((r) => setTimeout(r, 500)); // 0.5초 대기 후 재시도
+    }
+
     if (!submitButton) {
+      // 디버깅 정보 출력
+      const allButtons = document.querySelectorAll("button");
+      console.error(
+        "[Catering] ❌ All buttons on page:",
+        Array.from(allButtons).map((btn) => ({
+          text: btn.textContent?.trim(),
+          type: btn.type,
+          disabled: btn.disabled,
+          visible: btn.offsetParent !== null,
+        }))
+      );
       return {
         success: false,
         message: "제출 버튼을 찾을 수 없습니다",

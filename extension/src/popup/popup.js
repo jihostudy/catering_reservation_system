@@ -39,7 +39,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 로그인한 경우 웹사이트에서 사용자 정보 가져오기
     if (isAuthenticated) {
       showLoading("사용자 정보 불러오는 중...");
-      await syncUserDataFromWeb();
+      try {
+        await syncUserDataFromWeb();
+      } catch (error) {
+        console.error("[Catering] 사용자 정보 동기화 실패:", error);
+        loadStatusFromStorage();
+        hideLoading();
+      }
     } else {
       // 로그인하지 않은 경우: 로컬 데이터 초기화
       showLoading("로컬 데이터 확인 중...");
@@ -48,9 +54,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (error) {
     console.error("[Catering] 초기화 중 오류:", error);
-  } finally {
-    // 로딩 완료
     hideLoading();
+  } finally {
+    // 로딩 완료 (혹시 모를 경우를 대비)
+    setTimeout(() => {
+      hideLoading();
+    }, 100);
   }
 
   // 토글 버튼 클릭
@@ -260,9 +269,21 @@ async function syncUserDataFromWeb() {
 
     // 현재 스케줄 가져오기
     return new Promise((resolve) => {
+      // 타임아웃 설정 (10초)
+      const timeout = setTimeout(() => {
+        console.error("[Catering] ⏰ Timeout waiting for GET_STATUS response");
+        loadStatusFromStorage();
+        hideLoading();
+        resolve();
+      }, 10000);
+
       chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+        clearTimeout(timeout);
+        
         if (!response) {
+          console.warn("[Catering] ⚠️ No response from GET_STATUS");
           loadStatusFromStorage();
+          hideLoading();
           resolve();
           return;
         }
@@ -307,11 +328,10 @@ async function syncUserDataFromWeb() {
             if (updateResponse?.success) {
               currentSchedule = updatedSchedule;
               updateStatusUI(updatedSchedule);
-              // lastResult도 함께 로드
-              loadLastResult();
             } else {
               loadStatusFromStorage();
             }
+            hideLoading();
             resolve();
           }
         );
@@ -339,7 +359,7 @@ function loadStatusFromStorage() {
         "[Catering] Background script error, using direct storage access:",
         chrome.runtime.lastError.message
       );
-      chrome.storage.local.get(["schedule", "lastResult"], (data) => {
+      chrome.storage.local.get(["schedule"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
           targetHour: 15,
@@ -348,18 +368,16 @@ function loadStatusFromStorage() {
         };
         currentSchedule = schedule;
         updateStatusUI(schedule);
-        updateLastResultUI(data.lastResult || null);
         hideLoading();
       });
     } else if (response) {
-      const { schedule, lastResult } = response;
+      const { schedule } = response;
       currentSchedule = schedule;
       updateStatusUI(schedule);
-      updateLastResultUI(lastResult);
       hideLoading();
     } else {
       // 응답이 없으면 직접 Storage 접근
-      chrome.storage.local.get(["schedule", "lastResult"], (data) => {
+      chrome.storage.local.get(["schedule"], (data) => {
         const schedule = data.schedule || {
           enabled: false,
           targetHour: 15,
@@ -368,20 +386,9 @@ function loadStatusFromStorage() {
         };
         currentSchedule = schedule;
         updateStatusUI(schedule);
-        updateLastResultUI(data.lastResult || null);
         hideLoading();
       });
     }
-  });
-}
-
-/**
- * 최근 실행 결과만 로드
- */
-function loadLastResult() {
-  chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-    if (!response) return;
-    updateLastResultUI(response.lastResult);
   });
 }
 
@@ -432,20 +439,3 @@ function updateStatusUI(schedule) {
   }
 }
 
-function updateLastResultUI(lastResult) {
-  const sectionEl = document.getElementById("lastResultSection");
-  const resultEl = document.getElementById("lastResult");
-
-  if (!lastResult) {
-    sectionEl.style.display = "none";
-    return;
-  }
-
-  sectionEl.style.display = "block";
-  const date = new Date(lastResult.timestamp).toLocaleString("ko-KR");
-  const status = lastResult.success ? "성공" : "실패";
-  resultEl.innerHTML = `
-    <div>${date}</div>
-    <div><strong>${status}</strong>: ${lastResult.message}</div>
-  `;
-}

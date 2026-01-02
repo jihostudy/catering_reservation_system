@@ -385,11 +385,48 @@ async function fillReservationForm(
       };
     }
 
+    // 제출 버튼 클릭 전 상태 저장
+    const beforeSubmitUrl = window.location.href;
+    const beforeSubmitForm = document.querySelector("form");
+
+    console.log("[Catering] 🔘 Clicking submit button...");
+    console.log("[Catering] Before submit - URL:", beforeSubmitUrl);
+    console.log("[Catering] Before submit - Form exists:", !!beforeSubmitForm);
+
     submitButton.click();
-    console.log("[Catering] Form submitted, waiting for result...");
+    console.log("[Catering] ✅ Submit button clicked, waiting for result...");
+
+    // 제출 후 짧은 대기 (제출이 실제로 처리되는 시간)
+    // 네트워크 지연을 고려하여 1500ms 대기
+    await new Promise((r) => setTimeout(r, 1500));
 
     // 제출 후 결과 확인 (SOTA: 성공/실패/이미 예약 확인)
     const result = await waitForReservationResult(isTestMode, 10000);
+
+    // 결과 검증: 실제로 제출이 이루어졌는지 확인
+    const afterSubmitUrl = window.location.href;
+    const afterSubmitForm = document.querySelector("form");
+
+    console.log("[Catering] After submit - URL:", afterSubmitUrl);
+    console.log("[Catering] After submit - Form exists:", !!afterSubmitForm);
+    console.log("[Catering] URL changed:", beforeSubmitUrl !== afterSubmitUrl);
+
+    // 성공으로 판단되었지만 실제로 제출이 안 된 경우
+    if (
+      result.success &&
+      beforeSubmitUrl === afterSubmitUrl &&
+      afterSubmitForm
+    ) {
+      console.error(
+        "[Catering] ⚠️ False positive detected: Success reported but form still exists and URL unchanged"
+      );
+      return {
+        success: false,
+        message: "제출이 실제로 이루어지지 않았습니다 (폼이 여전히 존재함)",
+        timestamp: result.timestamp,
+      };
+    }
+
     return result;
   } catch (error) {
     const errorMessage =
@@ -645,17 +682,33 @@ function checkReservationStatus(): {
     }
   }
 
-  // 폼이 사라지고 다른 내용이 나타났는지 확인
+  // 폼이 사라지고 다른 내용이 나타났는지 확인 (더 엄격한 검증)
   const form = document.querySelector("form");
   const submitButton = findSubmitButton();
 
-  // 폼이 사라졌고 제출 버튼도 없으면 성공으로 간주 (페이지가 변경됨)
+  // 폼이 사라졌고 제출 버튼도 없으면 성공으로 간주 (하지만 URL 변경이나 성공 메시지가 있어야 함)
   if (!form && !submitButton && bodyText.length > 100) {
-    // 충분한 내용이 있으면 페이지가 변경된 것으로 간주
-    return {
-      success: true,
-      message: "예약 완료 (페이지 변화 감지)",
-    };
+    // URL이 변경되었거나 성공 메시지가 있는 경우에만 성공으로 판단
+    const urlChanged = currentUrl !== window.location.href;
+    const hasSuccessMessage = successPatterns.some(
+      (pattern) => pattern.test(bodyText) || pattern.test(bodyHTML)
+    );
+
+    if (urlChanged || hasSuccessMessage || currentUrl.includes("/my/")) {
+      console.log(
+        "[Catering] ✅ Success detected: Form disappeared with URL change or success message"
+      );
+      return {
+        success: true,
+        message: "예약 완료 (페이지 변화 감지)",
+      };
+    } else {
+      // 폼이 없지만 URL도 안 바뀌고 성공 메시지도 없으면 아직 확인 불가
+      console.log(
+        "[Catering] ⚠️ Form disappeared but no clear success indicator"
+      );
+      return null;
+    }
   }
 
   return null; // 아직 결과를 확인할 수 없음
@@ -702,17 +755,29 @@ async function sendResultToBackground(
  * 페이지 로드 시 pending 예약 확인 및 실행
  */
 async function checkAndExecutePendingReservation(): Promise<void> {
+  console.log(
+    "[Catering] 🚀 Content script loaded, checking for pending reservation..."
+  );
+  console.log("[Catering] Document readyState:", document.readyState);
+  console.log("[Catering] Current URL:", window.location.href);
+
   const storage = await chrome.storage.local.get("pendingReservation");
   const pendingData = storage.pendingReservation as ReservationData | null;
 
   if (!pendingData) {
-    console.log("[Catering] No pending reservation");
+    console.log("[Catering] ❌ No pending reservation found in storage");
     return;
   }
 
-  console.log("[Catering] Found pending reservation, executing...", {
+  console.log("[Catering] ✅ Found pending reservation, executing...", {
+    email: pendingData.email,
+    name: pendingData.name,
+    employeeId: pendingData.employeeId,
     cateringType: pendingData.cateringType,
   });
+
+  // 폼이 준비될 때까지 조금 더 대기 (페이지 렌더링 시간 확보)
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   // 폼 입력 실행
   const result = await fillReservationForm(pendingData);
@@ -725,8 +790,16 @@ async function checkAndExecutePendingReservation(): Promise<void> {
 }
 
 // 페이지 로드 완료 후 실행
+console.log("[Catering] 📋 Content script initializing...");
+console.log("[Catering] Initial readyState:", document.readyState);
+
 if (document.readyState === "complete") {
+  console.log("[Catering] Document already loaded, executing immediately");
   checkAndExecutePendingReservation();
 } else {
-  window.addEventListener("load", checkAndExecutePendingReservation);
+  console.log("[Catering] Waiting for document to load...");
+  window.addEventListener("load", () => {
+    console.log("[Catering] Document loaded, executing now");
+    checkAndExecutePendingReservation();
+  });
 }

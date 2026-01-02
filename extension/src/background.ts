@@ -51,8 +51,8 @@ async function setupDailyAlarm(schedule: ReservationSchedule): Promise<void> {
 
   const now = new Date();
   const targetTime = new Date();
-  // 자동 예약 시간: 10:09 (테스트용)
-  targetTime.setHours(10, 9, 0, 0);
+  // 자동 예약 시간: 15:00 (오후 3시)
+  targetTime.setHours(15, 0, 0, 0);
   targetTime.setSeconds(0, 0);
 
   // 이미 지난 시간이면 다음 날로 설정
@@ -307,52 +307,38 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       return;
     }
 
-    // 타겟 페이지를 백그라운드에서 열기
-    // 참고: Chrome Extension 제한으로 인해 탭을 열어야 하지만, 최소화된 창으로 열어서 사용자가 보지 않게 처리
-    console.log(
-      "[Catering] 🌐 Opening target page in minimized window:",
-      TARGET_URL
-    );
+    // 타겟 페이지를 일반 탭으로 열기
+    // 참고: 백그라운드/최소화 탭에서는 JavaScript 실행이 제한되어 폼 자동 입력이 작동하지 않음
+    console.log("[Catering] 🌐 Opening target page in active tab:", TARGET_URL);
 
-    // 새 창으로 열기 (사용자가 보고 있는 창과 분리)
-    const newWindow = await chrome.windows.create({
-      url: TARGET_URL,
-      focused: false, // 포커스하지 않음
-      state: "minimized", // 최소화 상태로 열기
-      type: "normal",
+    // ⚠️ 중요: 탭을 열기 전에 먼저 예약 데이터를 저장해야 함
+    // content script가 페이지 로드 시 바로 읽을 수 있도록
+    await chrome.storage.local.set({
+      pendingReservation: schedule.reservationData,
+      reservationSource: "auto", // 실행 원인: 자동 예약
     });
 
-    // 창을 즉시 최소화 시도 (플랫폼에 따라 다를 수 있음)
-    if (newWindow.id) {
-      try {
-        await chrome.windows.update(newWindow.id, {
-          focused: false,
-          state: "minimized",
-        });
-      } catch (error) {
-        // 최소화 실패해도 계속 진행 (일부 플랫폼에서 지원 안 함)
-        console.log("[Catering] ⚠️ Could not minimize window:", error);
-      }
-    }
+    console.log(
+      "[Catering] 📦 Reservation data saved before opening tab:",
+      schedule.reservationData
+    );
 
-    // 새 창의 첫 번째 탭 ID 가져오기
-    const tabs = await chrome.tabs.query({ windowId: newWindow.id });
-    const tab = tabs[0];
+    // 일반 탭으로 열기 (포그라운드)
+    const tab = await chrome.tabs.create({
+      url: TARGET_URL,
+      active: true, // 포그라운드로 열기 (JavaScript 실행을 위해 필수)
+    });
 
     if (!tab || !tab.id) {
-      console.error("[Catering] ❌ Failed to get tab from new window");
+      console.error("[Catering] ❌ Failed to create tab");
       return;
     }
 
-    // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
-    await chrome.tabs.update(tab.id, { active: false });
-    console.log("[Catering] ✅ Tab opened in minimized window, ID:", tab.id);
+    console.log("[Catering] ✅ Tab opened in foreground, ID:", tab.id);
 
-    // content script에 예약 데이터 전달을 위해 저장
+    // 탭 ID 추가 저장 (나중에 닫기 위해)
     await chrome.storage.local.set({
-      pendingReservation: schedule.reservationData,
-      reservationTabId: tab.id, // 탭 ID 저장 (나중에 닫기 위해)
-      reservationSource: "auto", // 실행 원인: 자동 예약
+      reservationTabId: tab.id,
     });
 
     console.log(
@@ -514,20 +500,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         reservationSource: testMode ? "test" : "manual", // 실행 원인: 테스트 또는 수동
       })
       .then(() => {
-        // 페이지 열기 (백그라운드)
+        // 페이지 열기 (일반 탭으로 열기 - 예약하기 테스트와 동일)
         return chrome.tabs.create({
           url,
-          active: false, // 백그라운드에서 열기
+          active: true, // 포그라운드에서 열기
           pinned: false, // 고정하지 않음
         });
       })
       .then(async (tab) => {
-        // 탭이 포그라운드로 전환되지 않도록 명시적으로 처리
-        if (tab.id) {
-          await chrome.tabs.update(tab.id, { active: false });
-        }
         console.log(
-          "[Catering] 📝 Reservation page opened in background, tab ID:",
+          "[Catering] 📝 Reservation page opened in new tab, tab ID:",
           tab.id
         );
         // 탭 ID 저장 시에도 에러 처리

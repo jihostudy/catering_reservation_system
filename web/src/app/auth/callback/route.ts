@@ -53,33 +53,25 @@ export async function GET(request: Request) {
         );
       }
 
-      // 사용자 정보를 profiles 테이블에 저장 (첫 로그인 시에만)
+      // 사용자 정보를 profiles 테이블에 저장 (upsert)
       if (user?.id && user?.email) {
-        // 먼저 기존 프로필 확인
-        const { data: existingProfile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", user.id)
-          .single();
-
-        // 프로필이 없는 경우에만 생성 (첫 회원가입)
-        if (!existingProfile) {
-          const { error: profileError } = await supabase.from("profiles").insert({
+        const { error: profileError } = await supabase.from("profiles").upsert(
+          {
             id: user.id,
             email: user.email,
             // Google OAuth에서 가져온 이름이 있으면 저장
             name:
               user.user_metadata?.full_name || user.user_metadata?.name || null,
-          });
-
-          if (profileError) {
-            console.error("Failed to create user profile:", profileError);
-            // 프로필 생성 실패해도 로그인은 진행 (나중에 수정 가능)
-          } else {
-            console.log("New user profile created:", user.email);
+          },
+          {
+            onConflict: "id",
+            ignoreDuplicates: false,
           }
-        } else {
-          console.log("Existing user logged in:", user.email);
+        );
+
+        if (profileError) {
+          console.error("Failed to save user profile:", profileError);
+          // 프로필 저장 실패해도 로그인은 진행 (나중에 수정 가능)
         }
       }
 

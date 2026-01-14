@@ -36,10 +36,5 @@ zip -r "${ZIP_NAME}" \
 echo "✅ ${ZIP_NAME} 생성 완료!"
 echo "📁 파일 위치: $(pwd)/${ZIP_NAME}"
 echo "📌 버전: ${VERSION}"
-echo ""
-echo "📋 다음 단계:"
-echo "1. GitHub Releases에 업로드하거나"
-echo "2. Chrome Web Store 개발자 콘솔 접속: https://chrome.google.com/webstore/devconsole"
-echo "3. 새 항목 추가 → ZIP 파일 업로드"
-echo "4. 스토어 정보 입력 및 제출"
+
 

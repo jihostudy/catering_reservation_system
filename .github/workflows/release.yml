@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./extension
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Extract version from tag
         id: tag_version

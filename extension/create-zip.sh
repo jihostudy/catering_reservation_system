@@ -7,8 +7,12 @@ echo "📦 배포용 ZIP 파일 생성 중..."
 # extension 폴더로 이동
 cd "$(dirname "$0")"
 
+# 버전 정보 읽기
+VERSION=$(node -p "require('./package.json').version")
+ZIP_NAME="catering-extension-v${VERSION}.zip"
+
 # 기존 ZIP 파일 삭제
-rm -f catering-extension.zip
+rm -f catering-extension*.zip
 
 # 빌드 확인
 if [ ! -d "dist" ]; then
@@ -17,7 +21,7 @@ if [ ! -d "dist" ]; then
 fi
 
 # 필수 파일만 ZIP에 포함 (.map 파일 제외)
-zip -r catering-extension.zip \
+zip -r "${ZIP_NAME}" \
   manifest.json \
   dist/background.js \
   dist/content.js \
@@ -29,11 +33,8 @@ zip -r catering-extension.zip \
   public/icons/icon128.png \
   -x "*.map" "*.ts" "node_modules/*" ".git/*"
 
-echo "✅ catering-extension.zip 생성 완료!"
-echo "📁 파일 위치: $(pwd)/catering-extension.zip"
-echo ""
-echo "📋 다음 단계:"
-echo "1. Chrome Web Store 개발자 콘솔 접속: https://chrome.google.com/webstore/devconsole"
-echo "2. 새 항목 추가 → ZIP 파일 업로드"
-echo "3. 스토어 정보 입력 및 제출"
+echo "✅ ${ZIP_NAME} 생성 완료!"
+echo "📁 파일 위치: $(pwd)/${ZIP_NAME}"
+echo "📌 버전: ${VERSION}"
+
 

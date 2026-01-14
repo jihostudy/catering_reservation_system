@@ -1,0 +1,111 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*" # v1.0.0, v1.1.0 등의 태그가 푸시될 때 실행
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: extension/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ./extension
+        run: pnpm install --frozen-lockfile
+
+      - name: Extract version from tag
+        id: tag_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json and manifest.json
+        working-directory: ./extension
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          # package.json 버전 업데이트
+          npm pkg set version="$VERSION"
+          # manifest.json 버전 업데이트
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            manifest.version = '$VERSION';
+            fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          "
+
+      - name: Clean build files
+        working-directory: ./extension
+        run: |
+          echo "🧹 기존 빌드 파일 삭제 중..."
+          rm -rf dist
+          echo "✅ 기존 빌드 파일 삭제 완료"
+
+      - name: Build extension
+        working-directory: ./extension
+        run: |
+          echo "🔨 Extension 빌드 중..."
+          pnpm build
+          echo "✅ Extension 빌드 완료"
+          echo "📦 빌드된 파일:"
+          ls -lh dist/
+
+      - name: Create ZIP package
+        working-directory: ./extension
+        run: |
+          chmod +x create-zip.sh
+          ./create-zip.sh
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            NOTES="## 변경사항\n\n이번 릴리즈의 주요 변경사항을 확인하세요."
+          else
+            NOTES="## 변경사항\n\n\`\`\`\n$(git log ${PREV_TAG}..HEAD --pretty=format:'- %s' --no-merges)\n\`\`\`"
+          fi
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: extension/catering-extension-v${{ steps.tag_version.outputs.VERSION }}.zip
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## 🎉 릴리즈 ${{ github.ref_name }}
+
+            ${{ steps.release_notes.outputs.notes }}
+
+            ## 📦 설치 방법
+
+            1. 위의 **catering-extension-v${{ steps.tag_version.outputs.VERSION }}.zip** 파일을 다운로드하세요.
+            2. ZIP 파일을 압축 해제하세요.
+            3. Chrome 브라우저에서 `chrome://extensions/` 접속
+            4. 우측 상단 **"개발자 모드"** 활성화
+            5. **"압축해제된 확장 프로그램을 로드합니다"** 클릭
+            6. 압축 해제한 폴더를 선택하세요.
+
+            > 💡 자세한 사용 방법은 [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)를 참고하세요.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

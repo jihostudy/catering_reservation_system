@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 릴리즈 생성에 필요한 권한
 
     steps:
       - name: Checkout code

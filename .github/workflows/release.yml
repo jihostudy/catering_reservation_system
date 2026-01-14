@@ -66,17 +66,8 @@ jobs:
       - name: Create ZIP package
         working-directory: ./extension
         run: |
-          zip -r catering-extension-v${{ steps.tag_version.outputs.VERSION }}.zip \
-            manifest.json \
-            dist/background.js \
-            dist/content.js \
-            dist/dashboard-content.js \
-            src/popup/popup.html \
-            src/popup/popup.js \
-            public/icons/icon16.png \
-            public/icons/icon48.png \
-            public/icons/icon128.png \
-            -x "*.map" "*.ts" "node_modules/*" ".git/*"
+          chmod +x create-zip.sh
+          ./create-zip.sh
 
       - name: Generate release notes
         id: release_notes

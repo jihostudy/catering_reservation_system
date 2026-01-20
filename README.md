@@ -31,6 +31,18 @@
    - **"압축해제된 확장 프로그램을 로드합니다"** 클릭
    - 압축 해제한 폴더 선택
 
+4. [홈페이지](https://cateringreservationsystem.vercel.app/)에 접속하여 데이터 수정
+(예시)
+<img width="600" height="500" alt="image" src="https://github.com/user-attachments/assets/fda00171-1374-432e-90a5-90f9024b36a7" />
+
+
+
+5. 크롬 익스텐션에 정보가 제대로 입력되었는지 확인
+<img width="357" height="313" alt="image" src="https://github.com/user-attachments/assets/82282030-2605-4382-b3ba-cbaf7315c858" />
+
+
+
+
 > 💡 **업데이트 방법**: 새 버전이 릴리즈되면 기존 익스텐션을 제거하고 새 버전을 다시 설치하세요.
 
 #### 방법 2: (준비중, 사용 불가) Chrome Web Store에서 설치
